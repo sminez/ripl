@@ -1,5 +1,4 @@
 from pygments.token import Token
-# from pygments.lexers.lisp import HyLexer
 
 from prompt_toolkit import prompt
 from prompt_toolkit.history import InMemoryHistory
@@ -56,7 +55,6 @@ class RiplExecutor:
         Convert a string into a list of tokens.
         Pads parens/braces/brackets with whitespace for stripping.
         '''
-        # TODO: fix removal of whitespace in strings!
         tokens = input_string.replace('(', ' ( ').replace(')', ' ) ')
         tokens = tokens.replace('[', ' [ ').replace(']', ' ] ')
         tokens = tokens.replace('{', ' { ').replace('}', ' } ')
@@ -133,6 +131,7 @@ class RiplExecutor:
         Try to evaluate an expression in an environment.
         NOTE: Special language features and syntax found here.
         '''
+        # TODO: Break this into smaller, more testable chunks
         if not isinstance(x, list):  # constant literal
             try:
                 # Check to see if we have this in the current environment.
@@ -141,20 +140,23 @@ class RiplExecutor:
                 # We bottomed out so return it raw
                 return x
         elif x[0] == 'quote':          # (quote exp)
-            (_, exp) = x
+            # NOTE: This kind of works...but I haven't got unquoting
+            #       working yet.
+            # TODO: Convert back to RIPL/LISP representation?
+            _, exp = x
             return exp
         elif x[0] == 'if':             # (if test conseq alt)
-            (_, test, conseq, alt) = x
-            exp = (conseq if self.eval_exp(test, env) else alt)
+            _, test, conseq, alt = x
+            exp = conseq if self.eval_exp(test, env) else alt
             return self.eval_exp(exp, env)
         elif x[0] == 'define':         # (define var exp)
-            (_, var, exp) = x
+            _, var, exp = x
             env[var] = self.eval_exp(exp, env)
         elif x[0] == 'set!':           # (set! var exp)
-            (_, var, exp) = x
+            _, var, exp = x
             env.find(var)[var] = self.eval_exp(exp, env)
         elif x[0] == 'lambda':         # (lambda (var...) body)
-            (_, parms, body) = x
+            _, parms, body = x
             return Procedure(parms, body, env)
         else:                          # (proc arg...)
             proc = self.eval_exp(x[0], env)
@@ -179,6 +181,7 @@ class RiplRepl(RiplExecutor):
         super().__init__()
 
     def get_continuation_tokens(self, cli, width):
+        '''For use with multiline input when I get that working...'''
         return [(Token, '~' * width)]
 
     def eval_and_print(self, exp, env):
@@ -205,19 +208,15 @@ class RiplRepl(RiplExecutor):
         if not self.environment:
             raise EnvironmentError('Could not find execution environment')
 
-        welcome = ('<{[( RIPL Is Pythonic LISP )]}>\n'
-                   'Start typing a lisp expressions!\n'
-                   '(Type `quit` to quit)')
-        print(welcome)
-
-        history = InMemoryHistory()
+        print('<{[( RIPL Is Pythonic LISP )]}>\n'
+              'Start typing a lisp expressions!\n'
+              '(Type `quit` to quit)')
 
         try:
             while True:
                 user_input = prompt(
                         prompt_str,
-                        # lexer=HyLexer,
-                        history=history,
+                        history=InMemoryHistory(),
                         multiline=False,
                         mouse_support=True,
                         completer=self.completer,
@@ -232,6 +231,7 @@ class RiplRepl(RiplExecutor):
                         # display any exceptions to the user.
                         self.eval_and_print(user_input, self.environment)
         except EOFError:
+            # User hit Ctl+d
             exit_message()
 
 

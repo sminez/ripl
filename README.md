@@ -36,6 +36,8 @@ to allow you to sum arbitrary lists of numeric types:<br>
 
 
 ### TODO
+- [ ] TESTS!!!!!
+- [ ] Break the evaluator into smaller pieces
 - [ ] A prelude of functional style functions and operators
   - fold, scan, product, filter, reverse
   - take/drop{while}
