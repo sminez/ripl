@@ -182,7 +182,8 @@ class RiplExecutor:
 class RiplRepl(RiplExecutor):
     def __init__(self):
         self.completer = WordCompleter(
-            ('apply begin car cdr cons defn eq? equal? list? symbol? number?'
+            ('apply begin car cdr cons defn '
+             'eq? equal? list? symbol? number? '
              'null? append length').split(),
             ignore_case=False)
         super().__init__()
@@ -208,6 +209,9 @@ class RiplRepl(RiplExecutor):
         Uses prompt_toolkit:
             http://python-prompt-toolkit.readthedocs.io/en/stable/
         '''
+        def exit_message():
+            print('\nThanks for giving RIPL a try!\nさようなら!\n')
+
         if not self.environment:
             raise EnvironmentError('Could not find execution environment')
 
@@ -218,24 +222,27 @@ class RiplRepl(RiplExecutor):
 
         history = InMemoryHistory()
 
-        while True:
-            user_input = prompt(
-                    prompt_str,
-                    # lexer=HyLexer,
-                    history=history,
-                    multiline=False,
-                    mouse_support=True,
-                    completer=self.completer,
-                    auto_suggest=AutoSuggestFromHistory())
+        try:
+            while True:
+                user_input = prompt(
+                        prompt_str,
+                        # lexer=HyLexer,
+                        history=history,
+                        multiline=False,
+                        mouse_support=True,
+                        completer=self.completer,
+                        auto_suggest=AutoSuggestFromHistory())
 
-            if user_input:
-                if user_input == 'quit':
-                    print('\nThanks for giving RIPL a try!\nさようなら!\n')
-                    break
-                else:
-                    # Attempt to parse an expression and display any exceptions
-                    # to the user.
-                    self.eval_and_print(user_input, self.environment)
+                if user_input:
+                    if user_input == 'quit':
+                        exit_message()
+                        break
+                    else:
+                        # Attempt to parse an expression and
+                        # display any exceptions to the user.
+                        self.eval_and_print(user_input, self.environment)
+        except EOFError:
+            exit_message()
 
 
 class Procedure:
