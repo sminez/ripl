@@ -98,16 +98,6 @@ class RiplExecutor:
                 raise SyntaxError('missing closing )')
         elif token == ')':
             raise SyntaxError('unexpected ) in input')
-        elif token == '"':
-            # Regather and pass through to atom
-            # TODO: handle this earlier so that it isn't wasteful!
-            string_literal = []
-            while tokens[0] != '"':
-                string_literal.append(self.read_from_tokens(tokens))
-            # drop the enclosing "
-            tokens.pop(0)
-            string_literal = '"' + ' '.join(string_literal) + '"'
-            return self.atom(string_literal)
         else:
             return self.atom(token)
 
