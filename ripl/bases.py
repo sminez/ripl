@@ -29,7 +29,7 @@ class Env(dict):
         self.update(math_syms)
         self.update(builtins)
         self.update({
-            RiplSymbol('+'): ripl_add,
+            RiplSymbol('+'): ripl_add,  # Using a custom add for LISPyness
             RiplSymbol('-'): op.sub,
             RiplSymbol('*'): op.mul,
             RiplSymbol('/'): op.truediv,

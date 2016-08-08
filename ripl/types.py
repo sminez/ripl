@@ -3,7 +3,12 @@ Internal types
 '''
 
 
-class RiplSymbol(str):
+class RiplObject:
+    '''Base class for all RiplClasses'''
+    pass
+
+
+class RiplSymbol(RiplObject, str):
     '''Internal representation of symbols'''
     def __init__(self, string):
         self.str = string
@@ -22,16 +27,17 @@ class RiplSymbol(str):
             return self.str == other
 
 
-class RiplString(str):
+class RiplString(RiplObject, str):
     def __new__(cls, string, *args, **kwargs):
         return super(RiplString, cls).__new__(cls, string)
 
 
-class RiplList(list):
-    pass
+class RiplList(RiplObject, list):
+    def __repr__(self):
+        return '(' + ' '.join(self) + ')'
 
 
-class RiplNumeric:
+class RiplNumeric(RiplObject):
     '''Base class for numerics'''
     pass
 
