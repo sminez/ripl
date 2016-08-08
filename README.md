@@ -37,4 +37,5 @@ RIPL is still very hacky so bare with me!
 - [ ] A type system(! (>=3.5 only i think))
 - [ ] Macros
 - [ ] Auto indent / formatting in the repl
+  - Look [here](https://goo.gl/da5rR8) for Pygments Hy version.
 - [ ] A syntax file for Vim (maybe once I have the syntax settled...)

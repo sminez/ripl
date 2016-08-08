@@ -7,7 +7,7 @@ from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
 from .bases import Env
-from .bases import RiplSymbol, RiplList, RiplInt, RiplFloat
+from .types import RiplSymbol, RiplList, RiplInt, RiplFloat, RiplString
 
 
 class RiplExecutor:
@@ -23,17 +23,44 @@ class RiplExecutor:
         '''
         Read a LISP expression from a string.
         '''
-        return self.read_from_tokens(self.tokenize(program))
+        return self.read_from_tokens(self.get_tokens(program))
+
+    def get_tokens(self, string):
+        '''
+        Find string literals and preserve them while breaking
+        the rest of the input into individual tokens.
+        '''
+        if '"' not in string:
+            return self.tokenize(string)
+        else:
+            if string.count('"') % 2 != 0:
+                raise SyntaxError('Unclosed string literal in input')
+            else:
+                tokens = []
+                index_1 = string.find('"')
+                start = string[:index_1]
+                rest = string[index_1:]
+                # Break everything up until the start of the string
+                # literal into tokens
+                tokens += self.tokenize(start)
+                index_2 = rest[1:].find('"')
+                # Add the string literal as its own token
+                tokens.append(rest[:index_2 + 2])
+                # Break the rest of the input into tokens while
+                # still checking for other string literals.
+                tokens += self.get_tokens(rest[index_2 + 2:])
+                return tokens
 
     def tokenize(self, input_string):
         '''
         Convert a string into a list of tokens.
         Pads parens/braces/brackets with whitespace for stripping.
         '''
+        # TODO: fix removal of whitespace in strings!
         tokens = input_string.replace('(', ' ( ').replace(')', ' ) ')
         tokens = tokens.replace('[', ' [ ').replace(']', ' ] ')
-        tokens = tokens.replace('{', ' { ').replace('}', ' } ').split()
-        return tokens
+        tokens = tokens.replace('{', ' { ').replace('}', ' } ')
+        return tokens.split()
 
     def read_from_tokens(self, tokens):
         '''
@@ -58,26 +85,42 @@ class RiplExecutor:
         # Grab the first token
         token = tokens.pop(0)
 
-        if '(' == token:
-            # Start of an sexp, drop the intial paren
-            sexp = []
-            while tokens[0] != ')':
-                sexp.append(self.read_from_tokens(tokens))
-            # drop the final paren as well
-            tokens.pop(0)
-            return sexp
-
-        elif ')' == token:
+        if token == '(':
+            try:
+                # Start of an sexp, drop the intial paren
+                sexp = []
+                while tokens[0] != ')':
+                        sexp.append(self.read_from_tokens(tokens))
+                # drop the final paren as well
+                tokens.pop(0)
+                return sexp
+            except IndexError:
+                raise SyntaxError('missing closing )')
+        elif token == ')':
             raise SyntaxError('unexpected ) in input')
-
+        elif token == '"':
+            # Regather and pass through to atom
+            # TODO: handle this earlier so that it isn't wasteful!
+            string_literal = []
+            while tokens[0] != '"':
+                string_literal.append(self.read_from_tokens(tokens))
+            # drop the enclosing "
+            tokens.pop(0)
+            string_literal = '"' + ' '.join(string_literal) + '"'
+            return self.atom(string_literal)
         else:
             return self.atom(token)
 
     def atom(self, token):
         '''
         Numbers become numbers; every other token is a symbol.
+        NOTE: only double quotes denote strings
+              will be using single quotes for quoting later.
+        --> String literals are handled in read_from_tokens.
         '''
-        # TODO: strings, other numeric types, bytes
+        # TODO: other numeric types, bytes
+        if token.startswith('"') and token.endswith('"'):
+            return RiplString(token[1:-1])
         try:
             return RiplInt(token)
         except ValueError:
