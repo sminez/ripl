@@ -20,6 +20,20 @@ RIPL is still very hacky so bare with me!
 - `python3 cli.py -f <RIPL_FILE.ripl>` will evaluate and run a file (coming soon...)
 
 
+### Syntax
+The aim is to be able to import and run any valid python code into RIPL and to develop a converter that allows
+RIPL code to be imported into a python file.
+At the moment, the python builtins and python math standard libray are available as functions to call using standard LISP
+sexp syntax:<br>
+- `(print "hello, world!") --> print("hello, world!)`<br>
+
+Nesting and evaluation works in the usual LISP way:<br>
+- `(print (+ "hello," " world!")) --> print("hello," + " world!")`<br>
+
+As you can see from the TODO below, I'm planning on adding a bunch more stuff but for now, the `+` operator is overloaded
+to allow you to sum arbitrary lists of numeric types:<br>
+  `(+ 1 2.14 0.00159) --> 3.14159`
+
 
 ### TODO
 - [ ] A prelude of functional style functions and operators
