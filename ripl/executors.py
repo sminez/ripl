@@ -6,7 +6,8 @@ from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
 from .bases import Env
-from .types import RiplSymbol, RiplList, RiplInt, RiplFloat, RiplString
+from .backend import Lexer, Parser
+from .types import RiplSymbol, RiplList
 
 
 class RiplExecutor:
@@ -17,105 +18,8 @@ class RiplExecutor:
     '''
     def __init__(self):
         self.environment = Env(use_standard=True)
-
-    def parse(self, program):
-        '''
-        Read a LISP expression from a string.
-        '''
-        return self.read_from_tokens(self.get_tokens(program))
-
-    def get_tokens(self, string):
-        '''
-        Find string literals and preserve them while breaking
-        the rest of the input into individual tokens.
-        '''
-        if '"' not in string:
-            return self.tokenize(string)
-        else:
-            if string.count('"') % 2 != 0:
-                raise SyntaxError('Unclosed string literal in input')
-            else:
-                tokens = []
-                index_1 = string.find('"')
-                start = string[:index_1]
-                rest = string[index_1:]
-                # Break everything up until the start of the string
-                # literal into tokens
-                tokens += self.tokenize(start)
-                index_2 = rest[1:].find('"')
-                # Add the string literal as its own token
-                tokens.append(rest[:index_2 + 2])
-                # Break the rest of the input into tokens while
-                # still checking for other string literals.
-                tokens += self.get_tokens(rest[index_2 + 2:])
-                return tokens
-
-    def tokenize(self, input_string):
-        '''
-        Convert a string into a list of tokens.
-        Pads parens/braces/brackets with whitespace for stripping.
-        '''
-        tokens = input_string.replace('(', ' ( ').replace(')', ' ) ')
-        tokens = tokens.replace('[', ' [ ').replace(']', ' ] ')
-        tokens = tokens.replace('{', ' { ').replace('}', ' } ')
-        return tokens.split()
-
-    def read_from_tokens(self, tokens):
-        '''
-        Read an expression from a sequence of tokens.
-        Converts LISPy (func arg1 arg2) to Pythonic ['func', 'arg1', 'arg2']
-        Nesting works as expected and other datastructures get passed through:
-        {:key1 val1 :key2 val2} -> ['{', ':key1', 'val1', ':key2', 'val2', '}']
-        [val1 val2 val3] -> ['[', 'val1', 'val2', 'val3', ']']
-
-        The dict example above is following the syntax from clojure and
-        explicitly marks keys using the : operator. Need to allow arbitrary
-        key types so things like:
-            :"string", :42, :Function
-        should all work
-        '''
-        # NOTE: Python tuples wont work with this...!
-        # TODO: (, 1 2 3) -> (1, 2, 3) i.e. have ',' map to 'tuple'
-        if not tokens:
-            # Can't run an empty program!
-            raise SyntaxError('unexpected EOF while reading input')
-
-        # Grab the first token
-        token = tokens.pop(0)
-
-        if token == '(':
-            try:
-                # Start of an sexp, drop the intial paren
-                sexp = []
-                while tokens[0] != ')':
-                        sexp.append(self.read_from_tokens(tokens))
-                # drop the final paren as well
-                tokens.pop(0)
-                return sexp
-            except IndexError:
-                raise SyntaxError('missing closing )')
-        elif token == ')':
-            raise SyntaxError('unexpected ) in input')
-        else:
-            return self.atom(token)
-
-    def atom(self, token):
-        '''
-        Numbers become numbers; every other token is a symbol.
-        NOTE: only double quotes denote strings
-              will be using single quotes for quoting later.
-        --> String literals are handled in read_from_tokens.
-        '''
-        # TODO: other numeric types, bytes
-        if token.startswith('"') and token.endswith('"'):
-            return RiplString(token[1:-1])
-        try:
-            return RiplInt(token)
-        except ValueError:
-            try:
-                return RiplFloat(token)
-            except ValueError:
-                return RiplSymbol(token)
+        self.lexer = Lexer()
+        self.parser = Parser()
 
     def py_to_lisp_str(self, exp):
         '''
@@ -190,7 +94,7 @@ class RiplRepl(RiplExecutor):
         Catches and displays output and exceptions.
         '''
         try:
-            val = self.eval_exp(self.parse(exp), env)
+            val = self.eval_exp(exp, env)
             if val is not None:
                 print('> ' + self.py_to_lisp_str(val) + '\n')
         except Exception as e:
@@ -212,12 +116,15 @@ class RiplRepl(RiplExecutor):
               'Start typing a lisp expressions!\n'
               '(Type `quit` to quit)')
 
+        history = InMemoryHistory()
+
         try:
             while True:
                 user_input = prompt(
                         prompt_str,
-                        history=InMemoryHistory(),
+                        history=history,
                         multiline=False,
+                        wrap_lines=True,
                         mouse_support=True,
                         completer=self.completer,
                         auto_suggest=AutoSuggestFromHistory())
@@ -229,8 +136,10 @@ class RiplRepl(RiplExecutor):
                     else:
                         # Attempt to parse an expression and
                         # display any exceptions to the user.
-                        self.eval_and_print(user_input, self.environment)
-        except EOFError:
+                        raw_tokens = self.lexer.get_tokens(user_input)
+                        parsed_tokens = self.parser.parse(raw_tokens)
+                        self.eval_and_print(parsed_tokens, self.environment)
+        except (EOFError, KeyboardInterrupt):
             # User hit Ctl+d
             exit_message()
 
