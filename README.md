@@ -36,7 +36,8 @@ to allow you to sum arbitrary lists of numeric types:<br>
 
 
 ### TODO
-- [ ] TESTS!!!!!
+- [o] TESTS!!!!!
+  - Started: run with `python3 testrunner.py --with-coverage --cover-package=ripl`
 - [ ] Break the evaluator into smaller pieces
 - [ ] A prelude of functional style functions and operators
   - fold, scan, product, filter, reverse
@@ -51,7 +52,9 @@ to allow you to sum arbitrary lists of numeric types:<br>
 - [ ] Classes
 - [ ] Haskell style pattern matching
 - [ ] A type system(! (>=3.5 only i think))
+  - Look at using [typeannotations](https://github.com/ceronman/typeannotations)
 - [ ] Macros
 - [ ] Auto indent / formatting in the repl
   - Look [here](https://goo.gl/da5rR8) for Pygments Hy version.
 - [ ] A syntax file for Vim (maybe once I have the syntax settled...)
+- [x] look at using [pyperclip](https://github.com/asweigart/pyperclip)
