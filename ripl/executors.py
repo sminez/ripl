@@ -39,6 +39,7 @@ class RiplExecutor:
         if not isinstance(x, list):  # constant literal
             try:
                 # Check to see if we have this in the current environment.
+                # NOTE: env.find returns the environment containing x.
                 return env.find(RiplSymbol(x))[x]
             except AttributeError:
                 # We bottomed out so return it raw
@@ -46,7 +47,7 @@ class RiplExecutor:
         elif x[0] == 'quote':          # (quote exp)
             # NOTE: This kind of works...but I haven't got unquoting
             #       working yet.
-            # TODO: Convert back to RIPL/LISP representation?
+            # TODO: Handle this in the same way as strings
             _, exp = x
             return exp
         elif x[0] == 'if':             # (if test conseq alt)
