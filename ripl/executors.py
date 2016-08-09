@@ -30,42 +30,42 @@ class RiplExecutor:
         else:
             return str(exp)
 
-    def eval_exp(self, x, env):
+    def eval_exp(self, tkns, env):
         '''
         Try to evaluate an expression in an environment.
         NOTE: Special language features and syntax found here.
         '''
         # TODO: Break this into smaller, more testable chunks
-        if not isinstance(x, list):  # constant literal
+        if not isinstance(tkns, list):  # constant literal
             try:
                 # Check to see if we have this in the current environment.
-                # NOTE: env.find returns the environment containing x.
-                return env.find(RiplSymbol(x))[x]
+                # NOTE: env.find returns the environment containing tkns.
+                return env.find(RiplSymbol(tkns))[tkns]
             except AttributeError:
                 # We bottomed out so return it raw
-                return x
-        elif x[0] == 'quote':          # (quote exp)
+                return tkns
+        elif tkns[0] == 'quote':          # (quote exp)
             # NOTE: This kind of works...but I haven't got unquoting
             #       working yet.
             # TODO: Handle this in the same way as strings
-            _, exp = x
+            _, exp = tkns
             return exp
-        elif x[0] == 'if':             # (if test conseq alt)
-            _, test, conseq, alt = x
+        elif tkns[0] == 'if':             # (if test conseq alt)
+            _, test, conseq, alt = tkns
             exp = conseq if self.eval_exp(test, env) else alt
             return self.eval_exp(exp, env)
-        elif x[0] == 'define':         # (define var exp)
-            _, var, exp = x
+        elif tkns[0] == 'define':         # (define var exp)
+            _, var, exp = tkns
             env[var] = self.eval_exp(exp, env)
-        elif x[0] == 'set!':           # (set! var exp)
-            _, var, exp = x
+        elif tkns[0] == 'set!':           # (set! var exp)
+            _, var, exp = tkns
             env.find(var)[var] = self.eval_exp(exp, env)
-        elif x[0] == 'lambda':         # (lambda (var...) body)
-            _, parms, body = x
+        elif tkns[0] == 'lambda':         # (lambda (var...) body)
+            _, parms, body = tkns
             return Procedure(parms, body, env)
-        else:                          # (proc arg...)
-            proc = self.eval_exp(x[0], env)
-            args = [self.eval_exp(exp, env) for exp in x[1:]]
+        else:                             # (proc arg...)
+            proc = self.eval_exp(tkns[0], env)
+            args = [self.eval_exp(exp, env) for exp in tkns[1:]]
             return proc(*args)
 
     def make_procedure(self, parms, body, env):
@@ -95,7 +95,9 @@ class RiplRepl(RiplExecutor):
         Catches and displays output and exceptions.
         '''
         try:
-            val = self.eval_exp(exp, env)
+            raw_tokens = self.lexer.get_tokens(exp)
+            parsed_tokens = self.parser.parse(raw_tokens)
+            val = self.eval_exp(parsed_tokens, env)
             if val is not None:
                 print('> ' + self.py_to_lisp_str(val) + '\n')
         except Exception as e:
@@ -137,9 +139,7 @@ class RiplRepl(RiplExecutor):
                     else:
                         # Attempt to parse an expression and
                         # display any exceptions to the user.
-                        raw_tokens = self.lexer.get_tokens(user_input)
-                        parsed_tokens = self.parser.parse(raw_tokens)
-                        self.eval_and_print(parsed_tokens, self.environment)
+                        self.eval_and_print(user_input, self.environment)
         except (EOFError, KeyboardInterrupt):
             # User hit Ctl+d
             exit_message()
