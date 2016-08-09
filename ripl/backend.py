@@ -2,7 +2,7 @@
 Classes that take unicode string input and run the
 conversion from sexp -> python usable code.
 '''
-from .types import RiplSymbol, RiplString
+from .types import RiplSymbol, RiplString, RiplList
 from .types import RiplInt, RiplFloat
 
 
@@ -80,8 +80,12 @@ class Parser:
             try:
                 # Start of an sexp, drop the intial paren
                 sexp = []
+                if tokens[0] == ')':
+                    # Special case of the empty list
+                    tokens.pop(0)
+                    return RiplList()
+
                 while tokens[0] != ')':
-                    # NOTE: BROKEN HERE!
                         sexp.append(self.parse(tokens))
                 # drop the final paren as well
                 tokens.pop(0)

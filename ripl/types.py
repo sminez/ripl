@@ -8,13 +8,14 @@ class RiplObject:
     pass
 
 
-class RiplSymbol(RiplObject, str):
+class RiplSymbol(RiplObject):
     '''Internal representation of symbols'''
     def __init__(self, string):
         self.str = string
 
     def __repr__(self):
-        return self.str
+        # NOTE: not sure if this is a good idea...
+        raise NameError('name {} is not defined'.format(self.str))
 
     def __hash__(self):
         return hash(self.str)
@@ -35,6 +36,9 @@ class RiplString(RiplObject, str):
 class RiplList(RiplObject, list):
     def __repr__(self):
         return '(' + ' '.join(self) + ')'
+
+    def __hash__(self):
+        return hash(self)
 
 
 class RiplNumeric(RiplObject):

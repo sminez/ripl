@@ -4,6 +4,7 @@ from prompt_toolkit import prompt
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.clipboard.pyperclip import PyperclipClipboard
 
 from .bases import Env
 from .backend import Lexer, Parser
@@ -44,6 +45,9 @@ class RiplExecutor:
             except AttributeError:
                 # We bottomed out so return it raw
                 return tkns
+        elif tkns == RiplList():
+            # got the emptylist
+            return tkns
         elif tkns[0] == 'quote':          # (quote exp)
             # NOTE: This kind of works...but I haven't got unquoting
             #       working yet.
@@ -116,8 +120,9 @@ class RiplRepl(RiplExecutor):
             raise EnvironmentError('Could not find execution environment')
 
         print('<{[( RIPL Is Pythonic LISP )]}>\n'
-              'Start typing a lisp expressions!\n'
-              '(Type `quit` to quit)')
+              '    Ctrl-Space to enter selection mode.\n'
+              '    Ctrl-W/Y to cut/paste to system clipboard.\n'
+              '    Ctrl-D to exit\n')
 
         history = InMemoryHistory()
 
@@ -130,6 +135,8 @@ class RiplRepl(RiplExecutor):
                         wrap_lines=True,
                         mouse_support=True,
                         completer=self.completer,
+                        enable_history_search=True,
+                        clipboard=PyperclipClipboard(),
                         auto_suggest=AutoSuggestFromHistory())
 
                 if user_input:

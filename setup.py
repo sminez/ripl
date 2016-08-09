@@ -14,6 +14,9 @@ setup(
     install_requires=[
         'pygments==2.1.3',
         'prompt_toolkit==1.0.0',
+        'nose>=1.3.7',
+        'coverage==4.0.1',
+        'pyperclip==1.5.27',
     ],
     packages=find_packages(),
     package_dir={'ripl': 'ripl'},
