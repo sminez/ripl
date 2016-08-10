@@ -2,7 +2,9 @@ import math as _math
 import operator as op
 
 from .prelude import ripl_add
-from .types import RiplSymbol, RiplList, RiplNumeric  # , RiplInt, RiplFloat
+from .types import RiplSymbol, RiplString
+from .types import RiplNumeric, RiplInt, RiplFloat
+from .types import RiplTuple, RiplDict, RiplList
 
 
 class Env(dict):
@@ -40,19 +42,33 @@ class Env(dict):
             RiplSymbol('=='): op.eq,
             RiplSymbol('!='): op.ne,
             RiplSymbol('append'): op.add,
-            RiplSymbol('apply'): lambda x, xs: self[x](xs),
+            RiplSymbol('apply'): lambda x, xs: self[x](xs),  # need find?
             RiplSymbol('begin'): lambda *x: x[-1],
             RiplSymbol('car'): lambda x: x[0],
             RiplSymbol('cdr'): lambda x: x[1:],
             RiplSymbol('cons'): lambda x, y: [x] + y,
+            RiplSymbol(':'): lambda x, y: [x] + y,  # Haskelly
+            RiplSymbol('length'): len,
+            RiplSymbol('str'): lambda x: RiplString(x),
+            RiplSymbol('string'): lambda x: RiplString(x),
+            RiplSymbol('sym'): lambda x: RiplSymbol(x),
+            RiplSymbol('int'): lambda x: RiplInt(x),
+            RiplSymbol('float'): lambda x: RiplFloat(x),
+            RiplSymbol('dict'): lambda *x: RiplDict(x),
+            RiplSymbol('list'): lambda *x: RiplList(x),
+            RiplSymbol('tuple'): lambda *x: RiplTuple(x),
+            RiplSymbol(','): lambda *x: RiplTuple(x),
+            RiplSymbol('not'): op.not_,
             RiplSymbol('eq?'): op.is_,
             RiplSymbol('equal?'): op.eq,
-            RiplSymbol('length'): len,
-            RiplSymbol('list'): lambda *x: RiplList(x),
-            RiplSymbol('list?'): lambda x: isinstance(x, RiplList),
-            RiplSymbol('not'): op.not_,
             RiplSymbol('procedure?'): callable,
             RiplSymbol('null?'): lambda x: x == [],
+            RiplSymbol('string?'): lambda x: isinstance(x, RiplString),
             RiplSymbol('symbol?'): lambda x: isinstance(x, RiplSymbol),
+            RiplSymbol('int?'): lambda x: isinstance(x, RiplInt),
+            RiplSymbol('float?'): lambda x: isinstance(x, RiplFloat),
             RiplSymbol('number?'): lambda x: isinstance(x, RiplNumeric),
+            RiplSymbol('dict?'): lambda x: isinstance(x, RiplDict),
+            RiplSymbol('tuple?'): lambda x: isinstance(x, RiplTuple),
+            RiplSymbol('list?'): lambda x: isinstance(x, RiplList),
         })

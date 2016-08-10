@@ -1,5 +1,5 @@
 from unittest import TestCase
-from ripl.executors import RiplExecutor, RiplRepl, RiplList, Procedure
+from ripl.executors import RiplExecutor, RiplList, Procedure
 
 
 class ExecutorTest(TestCase):
@@ -15,10 +15,6 @@ class ExecutorTest(TestCase):
         l = RiplList(['print', RiplList(['+', '3', '4'])])
         s = self.executor.py_to_lisp_str(l)
         self.assertEqual(s, "(print (+ 3 4))")
-
-
-class ReplTest(TestCase):
-    executor = RiplRepl()
 
 
 class ProcedureTest(TestCase):

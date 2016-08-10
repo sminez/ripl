@@ -41,6 +41,33 @@ class RiplList(RiplObject, list):
         return hash(self)
 
 
+class RiplTuple(RiplObject, tuple):
+    def __repr__(self):
+        s = [str(elem) for elem in self]
+        return '(, ' + ' '.join(s) + ')'
+
+    def __hash__(self):
+        return hash(self)
+
+
+class RiplDict(RiplObject, dict):
+    def __init__(self, lst):
+        if len(lst) % 2 != 0:
+            raise SyntaxError("unmatched key/value in dict literal")
+        else:
+            super().__init__()
+            pairs = [lst[i:i+2] for i in range(0, len(lst), 2)]
+            d = {k: v for k, v in pairs}
+        super().__init__(d)
+
+    def __repr__(self):
+        tmp = [':{} {}'.format(k, v) for k, v in self.items()]
+        return '{' + ' '.join(tmp) + '}'
+
+    def __hash__(self):
+        return hash(self)
+
+
 class RiplNumeric(RiplObject):
     '''Base class for numerics'''
     pass
