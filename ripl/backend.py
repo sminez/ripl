@@ -2,7 +2,7 @@
 Classes that take unicode string input and run the
 conversion from sexp -> python usable code.
 '''
-from .types import RiplSymbol, RiplString, RiplList
+from .types import RiplSymbol, RiplString, RiplList, RiplDict
 from .types import RiplInt, RiplFloat
 
 
@@ -14,8 +14,8 @@ class Lexer:
     '''
     def get_tokens(self, string):
         '''
-        Find string literals and preserve them while breaking
-        the rest of the input into individual tokens.
+        Find string literals and preserve whitespace in them while
+        breaking the rest of the input into individual tokens.
         '''
         if '"' not in string:
             return self.tokenize(string)
@@ -38,15 +38,26 @@ class Lexer:
                 tokens += self.get_tokens(rest[index_2 + 2:])
                 return tokens
 
-    def tokenize(self, input_string):
+    def tokenize(self, string):
         '''
         Convert a string into a list of tokens.
         Pads parens/braces/brackets with whitespace for stripping.
         '''
-        tokens = input_string.replace('(', ' ( ').replace(')', ' ) ')
+        tokens = string.replace('(', ' ( ').replace(')', ' ) ')
         tokens = tokens.replace('[', ' [ ').replace(']', ' ] ')
         tokens = tokens.replace('{', ' { ').replace('}', ' } ')
         return tokens.split()
+
+    # NOTE: this probably wont work as it won't allow for nesting :(
+    # def get_list_from_str(self, string):
+    #     start, _, rest = string.partition('[')
+    #     body, _, end = rest.rpartition(']')
+    #     return start, '[' + body + ']', end
+
+    # def get_dict_from_str(self, string):
+    #     start, _, rest = string.partition('{')
+    #     body, _, end = rest.rpartition('}')
+    #     return start, '{' + body + '}', end
 
 
 class Parser:
@@ -67,8 +78,6 @@ class Parser:
             :"string", :42, :Function
         should all work
         '''
-        # NOTE: Python tuples wont work with this...!
-        # TODO: (, 1 2 3) -> (1, 2, 3) i.e. have ',' map to 'tuple'
         if not tokens:
             # Can't run an empty program!
             raise SyntaxError('unexpected EOF while reading input')
@@ -78,7 +87,7 @@ class Parser:
 
         if token == '(':
             try:
-                # Start of an sexp, drop the intial paren
+                # Start of an s-exp, drop the intial paren
                 sexp = []
                 if tokens[0] == ')':
                     # Special case of the empty list
@@ -86,14 +95,35 @@ class Parser:
                     return RiplList()
 
                 while tokens[0] != ')':
+                    if tokens[0] == '[':
+                        tokens.pop(0)
+                        lst, tokens = self._parse_list_literal(tokens)
+                        sexp.append(lst)
+                        if tokens[0] == ')':
+                            return sexp
+                        else:
+                            sexp.append(self.parse(tokens))
+                    elif tokens[0] == '{':
+                        tokens.pop(0)
+                        dct, tokens = self._parse_dict_literal(tokens)
+                        sexp.append(dct)
+                        if tokens[0] == ')':
+                            return sexp
+                        else:
+                            sexp.append(self.parse(tokens))
+                    else:
                         sexp.append(self.parse(tokens))
                 # drop the final paren as well
                 tokens.pop(0)
+
                 return sexp
+
             except IndexError:
                 raise SyntaxError('missing closing )')
+
         elif token == ')':
             raise SyntaxError('unexpected ) in input')
+
         else:
             return self.atom(token)
 
@@ -107,10 +137,57 @@ class Parser:
         # TODO: other numeric types, bytes
         if token.startswith('"') and token.endswith('"'):
             return RiplString(token[1:-1])
-        try:
-            return RiplInt(token)
-        except ValueError:
+        else:
             try:
-                return RiplFloat(token)
+                return RiplInt(token)
             except ValueError:
-                return RiplSymbol(token)
+                try:
+                    return RiplFloat(token)
+                except ValueError:
+                    return RiplSymbol(token)
+
+    def _parse_list_literal(self, tokens):
+        '''
+        Parse a list literal and return the list and remaining tokens
+        List literals are given as [...]
+        '''
+        tmp = []
+
+        try:
+            while tokens[0] != ']':
+                tmp.append(self.parse(tokens))
+            # drop the final bracket
+            tokens.pop(0)
+            return RiplList(tmp), tokens
+
+        except IndexError:
+            raise SyntaxError('missing closing ] in list literal')
+
+    def _parse_dict_literal(self, tokens):
+        '''
+        Parse a list literal and return the list and remaining tokens
+        List literals are given as [...]
+        '''
+        tmp = []
+        key = True
+
+        try:
+            while tokens[0] != '}':
+                if key:
+                    if not tokens[0].startswith(':'):
+                        raise SyntaxError("Invalid dict literal")
+                    # Drop leading : from keys
+                    tokens[0] = tokens[0][1:]
+                    key = False
+                else:
+                    key = True
+                tmp.append(self.parse(tokens))
+            # drop the final brace
+            tokens.pop(0)
+
+            if len(tmp) % 2 != 0:
+                raise SyntaxError("Invalid dict literal")
+            return RiplDict(tmp), tokens
+
+        except IndexError:
+            raise SyntaxError('missing closing } in dict literal')

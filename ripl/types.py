@@ -15,7 +15,8 @@ class RiplSymbol(RiplObject):
 
     def __repr__(self):
         # NOTE: not sure if this is a good idea...
-        raise NameError('name {} is not defined'.format(self.str))
+        # raise NameError('name {} is not defined'.format(self.str))
+        return self.str
 
     def __hash__(self):
         return hash(self.str)
