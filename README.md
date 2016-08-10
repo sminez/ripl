@@ -35,9 +35,13 @@ to allow you to sum arbitrary lists of numeric types:<br>
   `(+ 1 2.14 0.00159) --> 3.14159`
 
 
+### Running tests
+Set up a virtual-env for dev work and then run `python3 setup.py install` to
+set everything up and give you the `ripl` command.
+- Use `python3 testrunner.py --with-coverage --cover-package=ripl` to run the tests.
+
+
 ### TODO
-- [o] TESTS!!!!!
-  - Started: run with `python3 testrunner.py --with-coverage --cover-package=ripl`
 - [ ] Break the evaluator into smaller pieces
 - [ ] A prelude of functional style functions and operators
   - fold, scan, product, filter, reverse
@@ -57,4 +61,4 @@ to allow you to sum arbitrary lists of numeric types:<br>
 - [ ] Auto indent / formatting in the repl
   - Look [here](https://goo.gl/da5rR8) for Pygments Hy version.
 - [ ] A syntax file for Vim (maybe once I have the syntax settled...)
-- [x] look at using [pyperclip](https://github.com/asweigart/pyperclip)
+- [ ] docs

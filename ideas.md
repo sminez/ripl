@@ -1,22 +1,23 @@
 # Imports
 Full disclosure: this is probably a terrible way to do this...
 ```Python
+from importlib import import_module
+
 def pyimport(module, env, _as=None, _from=None):
     if _as and _from:
         raise SyntaxError
 
+    raw = import_module(module)
+    mod = vars(raw).items()
+
     if _as:
-        exec('import {} as {}'.format(module, _as))
-        defs = {RiplSymbol(k): v for k, v in vars(globals()[_as]).items()}
+        defs = {RiplSymbol('{}.{}'.format(_as, k)): v for k, v in mod}
         env.update(defs)
     elif _from:
-        exec('from {} import {}'.format(module, ', '.join(_from))
-        for f in _from:
-            defs = {RiplSymbol(k): v for k, v in vars(globals()[f]).items()}
-            env.update(defs)
+        defs = {RiplSymbol(k): v for k, v in mod if k in _from}
+        env.update(defs)
     else:
-        exec('import {}'.format(module))
-        defs = {RiplSymbol(k): v for k, v in vars(globals()[module]).items()}
+        defs = {RiplSymbol('{}.{}'.format(module, k)): v for k, v in mod}
         env.update(defs)
 
     return env
