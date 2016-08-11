@@ -66,7 +66,7 @@ class RiplExecutor:
             _, test, conseq, alt = tkns
             exp = conseq if self.eval_exp(test, env) else alt
             return self.eval_exp(exp, env)
-        elif tkns[0] == 'define':         # (define var exp)
+        elif tkns[0] == 'def':            # (def var exp)
             _, var, exp = tkns
             env[var] = self.eval_exp(exp, env)
         elif tkns[0] == 'set!':           # (set! var exp)
