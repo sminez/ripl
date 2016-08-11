@@ -10,21 +10,27 @@ https://docs.python.org/3.4/library/operator.html
 '''
 import functools
 import itertools
+import operator as op
 
 
-def reverse(arg):
+def reverse(itr):
     '''Reverse an iterable'''
-    return arg[::-1]
+    return itr[::-1]
+
+
+def product(*itr):
+    '''Find the product of an iterable'''
+    return functools.reduce(op.mul, itr)
 
 
 def foldl(func, acc, lst):
     '''Fold a list with a given binary function from the left'''
-    return functools.reduce(func, acc, lst)
+    return functools.reduce(func, lst, acc)
 
 
 def foldr(func, acc, lst):
     '''Fold a list with a given binary function from the right'''
-    return functools.reduce(func, acc, lst[::-1])
+    return functools.reduce(func, lst[::-1], acc)
 
 
 def scanl(func, acc, lst):

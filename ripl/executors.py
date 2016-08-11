@@ -10,6 +10,8 @@ from .bases import Env
 from .backend import Lexer, Parser
 from .types import RiplSymbol, RiplList
 
+import ripl.prelude as _prelude
+
 
 class RiplExecutor:
     '''
@@ -17,8 +19,12 @@ class RiplExecutor:
         Not sure whether to call it a compiler or not as it
         should eventually be able to output .py and .pyc
     '''
-    def __init__(self):
+    def __init__(self, prelude=True):
         self.environment = Env(use_standard=True)
+        if prelude:
+            funcs = {RiplSymbol(k): v for k, v in vars(_prelude).items()}
+            self.environment.update(funcs)
+
         self.lexer = Lexer()
         self.parser = Parser()
 

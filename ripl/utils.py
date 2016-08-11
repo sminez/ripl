@@ -7,25 +7,18 @@ http://www.kylem.net/programming/tailcall.html
 http://stackoverflow.com/questions/13591970/does-python-optimize-tail-recursion
 '''
 from .types import RiplSymbol
-from .types import RiplNumeric, RiplString
 
-from functools import partial
+import functools
+import operator as op
 from importlib import import_module
 
 
-def ripl_add(*args):
+def _ripl_add(*lst):
     '''
     Add an arbitrary number of numerics or cat
     an arbitrary number of strings together.
     '''
-    numeric = all([isinstance(x, RiplNumeric) for x in args])
-    if numeric:
-        return sum(args)
-    else:
-        if not all([isinstance(x, RiplString) for x in args]):
-            raise TypeError("Can't add strings and numerics")
-        # We should have strings so join them
-        return ''.join(args)
+    return functools.reduce(op.add, lst)
 
 
 def pyimport(module, env, _as=None, _from=None):
@@ -73,4 +66,4 @@ def curry(func, *args, **kwargs):
 
     This needs to be handled at the parsing stage...
     '''
-    return partial(func, *args, **kwargs)
+    return functools.partial(func, *args, **kwargs)

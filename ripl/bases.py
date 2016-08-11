@@ -1,7 +1,6 @@
-import math as _math
 import operator as op
 
-from .utils import ripl_add
+from .utils import _ripl_add
 from .types import RiplSymbol, RiplString
 from .types import RiplNumeric, RiplInt, RiplFloat
 from .types import RiplTuple, RiplDict, RiplList
@@ -26,12 +25,11 @@ class Env(dict):
         '''
         An environment with some Scheme standard procedures to get started.
         '''
-        math_syms = {RiplSymbol(k): v for k, v in vars(_math).items()}
         builtins = {RiplSymbol(k): v for k, v in __builtins__.items()}
-        self.update(math_syms)
         self.update(builtins)
+
         self.update({
-            RiplSymbol('+'): ripl_add,  # Using a custom add for LISPyness
+            RiplSymbol('+'): _ripl_add,  # Using a custom add for LISPyness
             RiplSymbol('-'): op.sub,
             RiplSymbol('*'): op.mul,
             RiplSymbol('/'): op.truediv,
