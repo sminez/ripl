@@ -65,3 +65,9 @@ def takeWhile(predicate, lst):
     (takeWhile ~(< 3) '(1 2 3 4 5)) -> '(1 2)
     '''
     return itertools.takewhile(predicate, lst)
+
+
+def flatten(lst):
+    '''Flatten an arbitrarily nested list of lists down to a single list'''
+    _list = ([x] if not isinstance(x, list) else flatten(x) for x in lst)
+    return sum(_list, [])

@@ -84,7 +84,7 @@ class RiplExecutor:
             env.find(var)[var] = self.eval_exp(exp, env)
         elif tkns[0] == 'lambda':         # (lambda (var...) body)
             _, parms, body = tkns
-            return Procedure(parms, body, env)
+            return Procedure(parms, body, env, executor=self)
         else:                             # (proc arg...)
             proc = self.eval_exp(tkns[0], env)
             args = [self.eval_exp(exp, env) for exp in tkns[1:]]
@@ -96,6 +96,7 @@ class RiplExecutor:
 
         proc = Procedure(parms, body, env)
         proc.__call__ = _call_proc
+        return proc
 
 
 class RiplRepl(RiplExecutor):
@@ -149,7 +150,7 @@ class RiplRepl(RiplExecutor):
                 user_input = prompt(
                         prompt_str,
                         history=history,
-                        multiline=False,
+                        multiline=True,
                         wrap_lines=True,
                         mouse_support=True,
                         completer=self.completer,
@@ -174,5 +175,19 @@ class Procedure:
     '''
     A user-defined LISP procedure.
     '''
-    def __init__(self, parms, body, env):
-        self.parms, self.body, self.env = parms, body, env
+    def __init__(self, parms, body, env, executor):
+        self.parms = parms
+        self.body = body
+        self.env = env
+        self.executor = executor
+
+    def __call__(self, *args):
+        res = self.executor.eval_exp(
+                self.body,
+                Env(
+                    parms=self.parms,
+                    args=args,
+                    outer=self.env
+                    )
+                )
+        return res

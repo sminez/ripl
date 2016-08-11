@@ -11,7 +11,8 @@ class Env(dict):
     A dict of {RiplSymbol('var'): val} pairs, with an outer Env.
     Used for storing and looking up the current environment.
     '''
-    def __init__(self, parms=(), args=(), outer=None, use_standard=False):
+    def __init__(self, parms=[], args=[], outer=None, use_standard=False):
+        # Bind function arguments to the local scope
         self.update(zip([RiplSymbol(p) for p in parms], args))
         self.outer = outer
         if use_standard:

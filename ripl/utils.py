@@ -67,9 +67,3 @@ def curry(func, *args, **kwargs):
     This needs to be handled at the parsing stage...
     '''
     return functools.partial(func, *args, **kwargs)
-
-
-def flatten(lst):
-    '''Flatten an arbitrarily nested list of lists down to a single list'''
-    _list = ([x] if not isinstance(x, list) else flatten(x) for x in lst)
-    return sum(_list, [])
