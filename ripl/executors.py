@@ -52,7 +52,10 @@ class RiplExecutor:
             # NOTE: This kind of works...but I haven't got unquoting
             #       working yet.
             _, exp = tkns
-            return exp
+            if type(exp) == list:
+                return RiplList(exp)
+            else:
+                return exp
         elif tkns[0] == 'if':             # (if test conseq alt)
             _, test, conseq, alt = tkns
             exp = conseq if self.eval_exp(test, env) else alt

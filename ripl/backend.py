@@ -46,18 +46,9 @@ class Lexer:
         tokens = string.replace('(', ' ( ').replace(')', ' ) ')
         tokens = tokens.replace('[', ' [ ').replace(']', ' ] ')
         tokens = tokens.replace('{', ' { ').replace('}', ' } ')
+        # Allow for the parsing of quoted atoms
+        tokens = tokens.replace("'", " ' ")
         return tokens.split()
-
-    # NOTE: this probably wont work as it won't allow for nesting :(
-    # def get_list_from_str(self, string):
-    #     start, _, rest = string.partition('[')
-    #     body, _, end = rest.rpartition(']')
-    #     return start, '[' + body + ']', end
-
-    # def get_dict_from_str(self, string):
-    #     start, _, rest = string.partition('{')
-    #     body, _, end = rest.rpartition('}')
-    #     return start, '{' + body + '}', end
 
 
 class Parser:
@@ -174,7 +165,7 @@ class Parser:
                 tmp.append(self.parse(tokens))
             # drop the final bracket
             tokens.pop(0)
-            return RiplList(tmp), tokens
+            return ['(', 'quote', RiplList(tmp), ')'], tokens
 
         except IndexError:
             raise SyntaxError('missing closing ] in list literal')
