@@ -56,11 +56,11 @@ set everything up and give you the `ripl` command.
 ### TODO
 - [ ] Break the evaluator into smaller pieces
 - [ ] A prelude of functional style functions and operators
-  [x] fold, scan, product, filter, reverse
-  - take/drop{while}
-  - quick file handling
-  [x] Currying / partial application (planning on having `~(sexp)` as syntax for this)
-  - zipwith
+  -  [x] fold, scan, product, filter, reverse
+  - [ ] take/drop{while}
+  - [ ] quick file handling
+  - [x] Currying / partial application (planning on having `~(sexp)` as syntax for this)
+  - [ ] zipwith
 - [ ] Python control flow: for, while, if
   - [ ] Functional versions / alternatives for these
 - [ ] Tail call recursion
