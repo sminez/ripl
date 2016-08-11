@@ -82,6 +82,16 @@ class Parser:
             # Can't run an empty program!
             raise SyntaxError('unexpected EOF while reading input')
 
+        #################################################
+        # NOTE: Need to be able to handle reader macros #
+        #################################################
+        # Something like:
+        # token, tokens = self.apply_reader_macros(token, tokens)
+
+        if tokens[0] == "'":
+            tokens.pop(0)
+            tokens = self.apply_quote(tokens)
+
         # Grab the first token
         token = tokens.pop(0)
 
@@ -191,3 +201,24 @@ class Parser:
 
         except IndexError:
             raise SyntaxError('missing closing } in dict literal')
+
+    def apply_quote(self, tokens):
+        '''
+        We found a ' in the input so we need to quote either the next
+        s-expression or the next atom.
+            '<atom>    --> (quote <atom>)
+            '(<s-exp>) --> (quote (<s-exp>))
+        '''
+        if tokens[0] == '(':
+            # Got a quoted s-expression
+            quoted = ['(', 'quote', ]
+            token = tokens.pop(0)
+            while token != ')':
+                quoted.append(token)
+                token = tokens.pop(0)
+            # Add the closing parens for the s-expression and the quote
+            quoted += [token, ')']
+            return quoted + tokens
+        else:
+            # Got a quoted atom
+            return ['(', 'quote', tokens[0], ')'] + tokens[1:]
