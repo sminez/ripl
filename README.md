@@ -34,6 +34,7 @@ As you can see from the TODO below, I'm planning on adding a bunch more stuff bu
 to allow you to sum arbitrary lists of numeric types:<br>
   `(+ 1 2.14 0.00159) --> 3.14159`
 
+- If in doubt I will be referring to [clojure](http://clojure.org/api/cheatsheet) for ideas.
 
 ### Running tests
 Set up a virtual-env for dev work and then run `python3 setup.py install` to

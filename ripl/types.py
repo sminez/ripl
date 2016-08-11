@@ -16,7 +16,7 @@ class RiplSymbol(RiplObject):
     def __repr__(self):
         # NOTE: not sure if this is a good idea...
         # raise NameError('name {} is not defined'.format(self.str))
-        return ':' + self.str
+        return self.str
 
     def __hash__(self):
         return hash(self.str)
@@ -36,7 +36,8 @@ class RiplString(RiplObject, str):
 
 class RiplList(RiplObject, list):
     def __repr__(self):
-        return '(' + ' '.join(self) + ')'
+        s = [str(elem) for elem in self]
+        return '(' + ' '.join(s) + ')'
 
     def __hash__(self):
         return hash(self)
@@ -63,7 +64,7 @@ class RiplDict(RiplObject, dict):
 
     def __repr__(self):
         tmp = ['{} {}'.format(k, v) for k, v in self.items()]
-        return '{' + ' '.join(tmp) + '}'
+        return '{' + ', '.join(tmp) + '}'
 
     def __hash__(self):
         return hash(self)
