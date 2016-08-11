@@ -1,7 +1,7 @@
 import math as _math
 import operator as op
 
-from .prelude import ripl_add
+from .utils import ripl_add
 from .types import RiplSymbol, RiplString
 from .types import RiplNumeric, RiplInt, RiplFloat
 from .types import RiplTuple, RiplDict, RiplList

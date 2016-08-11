@@ -95,6 +95,12 @@ class Parser:
         # Grab the first token
         token = tokens.pop(0)
 
+        ################################################
+        # NOTE: Need to be able to handle macros here! #
+        ################################################
+        # Something like:
+        # token, tokens = self.apply_macros(token, tokens)
+
         if token == '(':
             try:
                 # Start of an s-exp, drop the intial paren
