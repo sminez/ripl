@@ -69,6 +69,16 @@ class RiplExecutor:
         elif tkns[0] == 'def':            # (def var exp)
             _, var, exp = tkns
             env[var] = self.eval_exp(exp, env)
+        elif tkns[0] == 'eval':           # (eval 'exp) or (eval sym)
+            _, exp = tkns
+            if isinstance(exp, list):
+                # exp is [quote, [ ... ]]
+                val = self.eval_exp(exp[1], env)
+            else:
+                # exp is a symbol, look it up and eval it
+                _val = self.eval_exp(exp, env)
+                val = self.eval_exp(_val, env)
+            return val
         elif tkns[0] == 'set!':           # (set! var exp)
             _, var, exp = tkns
             env.find(var)[var] = self.eval_exp(exp, env)
