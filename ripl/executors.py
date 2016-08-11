@@ -51,7 +51,6 @@ class RiplExecutor:
         elif tkns[0] == 'quote':          # (quote exp)
             # NOTE: This kind of works...but I haven't got unquoting
             #       working yet.
-            # TODO: Handle this in the same way as strings
             _, exp = tkns
             return exp
         elif tkns[0] == 'if':             # (if test conseq alt)

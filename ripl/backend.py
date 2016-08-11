@@ -185,18 +185,9 @@ class Parser:
         List literals are given as [...]
         '''
         tmp = []
-        key = True
 
         try:
             while tokens[0] != '}':
-                if key:
-                    if not tokens[0].startswith(':'):
-                        raise SyntaxError("Invalid dict literal")
-                    # Drop leading : from keys
-                    tokens[0] = tokens[0][1:]
-                    key = False
-                else:
-                    key = True
                 tmp.append(self.parse(tokens))
             # drop the final brace
             tokens.pop(0)
@@ -215,16 +206,23 @@ class Parser:
             '<atom>    --> (quote <atom>)
             '(<s-exp>) --> (quote (<s-exp>))
         '''
-        if tokens[0] == '(':
-            # Got a quoted s-expression
-            quoted = ['(', 'quote', ]
-            token = tokens.pop(0)
-            while token != ')':
-                quoted.append(token)
-                token = tokens.pop(0)
-            # Add the closing parens for the s-expression and the quote
-            quoted += [token, ')']
-            return quoted + tokens
-        else:
+        if tokens[0] not in ['(', '{']:
             # Got a quoted atom
             return ['(', 'quote', tokens[0], ')'] + tokens[1:]
+        elif tokens[0] == '(':
+            # Got a quoted s-expression
+            deliminator = ')'
+        elif tokens[0] == '{':
+            # Got a quoted dict literal
+            deliminator = '}'
+
+        quoted = ['(', 'quote']
+        token = tokens.pop(0)
+        while token != deliminator:
+            quoted.append(token)
+            token = tokens.pop(0)
+
+        # Add the closing parens for the s-expression and the quote
+        quoted.append(token)
+
+        return quoted + [')'] + tokens
