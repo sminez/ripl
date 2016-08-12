@@ -10,7 +10,7 @@ from .bases import Env
 from .backend import Lexer, Parser
 from .types import RiplSymbol, RiplList
 
-import ripl.prelude as _prelude
+import ripl.prelude as prelude
 
 
 class RiplExecutor:
@@ -19,14 +19,15 @@ class RiplExecutor:
         Not sure whether to call it a compiler or not as it
         should eventually be able to output .py and .pyc
     '''
-    def __init__(self, prelude=True):
+    def __init__(self, use_prelude=True):
         self.environment = Env(use_standard=True)
-        if prelude:
-            funcs = {RiplSymbol(k): v for k, v in vars(_prelude).items()}
+        if use_prelude:
+            funcs = {RiplSymbol(k): v for k, v in vars(prelude).items()}
             self.environment.update(funcs)
 
         self.lexer = Lexer()
         self.parser = Parser()
+        self.syntax = Env(init_syntax=True)
 
     def py_to_lisp_str(self, exp):
         '''
@@ -37,7 +38,7 @@ class RiplExecutor:
         else:
             return str(exp)
 
-    def eval_exp(self, tkns, env):
+    def eval(self, tkns, env):
         '''
         Try to evaluate an expression in an environment.
         NOTE: Special language features and syntax found here.
@@ -54,49 +55,15 @@ class RiplExecutor:
         elif tkns == RiplList():
             # got the emptylist
             return tkns
-        elif tkns[0] == 'quote':          # (quote exp)
-            # NOTE: This kind of works...but I haven't got unquoting
-            #       working yet.
-            _, exp = tkns
-            if type(exp) == list:
-                return RiplList(exp)
-            else:
-                return exp
-        elif tkns[0] == 'if':             # (if test conseq alt)
-            _, test, conseq, alt = tkns
-            exp = conseq if self.eval_exp(test, env) else alt
-            return self.eval_exp(exp, env)
-        elif tkns[0] == 'def':            # (def var exp)
-            _, var, exp = tkns
-            env[var] = self.eval_exp(exp, env)
-        elif tkns[0] == 'eval':           # (eval 'exp) or (eval sym)
-            _, exp = tkns
-            if isinstance(exp, list):
-                # exp is [quote, [ ... ]]
-                val = self.eval_exp(exp[1], env)
-            else:
-                # exp is a symbol, look it up and eval it
-                _val = self.eval_exp(exp, env)
-                val = self.eval_exp(_val, env)
-            return val
-        elif tkns[0] == 'set!':           # (set! var exp)
-            _, var, exp = tkns
-            env.find(var)[var] = self.eval_exp(exp, env)
-        elif tkns[0] == 'lambda':         # (lambda (var...) body)
-            _, parms, body = tkns
-            return Procedure(parms, body, env, executor=self)
         else:                             # (proc arg...)
-            proc = self.eval_exp(tkns[0], env)
-            args = [self.eval_exp(exp, env) for exp in tkns[1:]]
-            return proc(*args)
-
-    def make_procedure(self, parms, body, env):
-        def _call_proc(self, *args):
-            return self.eval_exp(body, Env(parms, args, env))
-
-        proc = Procedure(parms, body, env)
-        proc.__call__ = _call_proc
-        return proc
+            call, *args = tkns
+            try:
+                exp = self.syntax.find(RiplSymbol(call))[call]
+                return exp(args, self, env)
+            except AttributeError:
+                proc = self.eval(tkns[0], env)
+                args = [self.eval(exp, env) for exp in tkns[1:]]
+                return proc(*args)
 
 
 class RiplRepl(RiplExecutor):
@@ -112,7 +79,7 @@ class RiplRepl(RiplExecutor):
         '''For use with multiline input when I get that working...'''
         return [(Token, '~' * width)]
 
-    def eval_and_print(self, exp, env):
+    def eval_and_print(self, exp):
         '''
         Attempt to evaluate an expresion in an execution environment.
         Catches and displays output and exceptions.
@@ -120,7 +87,7 @@ class RiplRepl(RiplExecutor):
         try:
             raw_tokens = self.lexer.get_tokens(exp)
             parsed_tokens = self.parser.parse(raw_tokens)
-            val = self.eval_exp(parsed_tokens, env)
+            val = self.eval(parsed_tokens, self.environment)
             if val is not None:
                 print('> ' + self.py_to_lisp_str(val) + '\n')
         except Exception as e:
@@ -165,29 +132,7 @@ class RiplRepl(RiplExecutor):
                     else:
                         # Attempt to parse an expression and
                         # display any exceptions to the user.
-                        self.eval_and_print(user_input, self.environment)
+                        self.eval_and_print(user_input)
         except (EOFError, KeyboardInterrupt):
             # User hit Ctl+d
             exit_message()
-
-
-class Procedure:
-    '''
-    A user-defined LISP procedure.
-    '''
-    def __init__(self, parms, body, env, executor):
-        self.parms = parms
-        self.body = body
-        self.env = env
-        self.executor = executor
-
-    def __call__(self, *args):
-        res = self.executor.eval_exp(
-                self.body,
-                Env(
-                    parms=self.parms,
-                    args=args,
-                    outer=self.env
-                    )
-                )
-        return res

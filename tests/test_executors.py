@@ -18,4 +18,4 @@ class ExecutorTest(TestCase):
 
 
 class ProcedureTest(TestCase):
-    proc = Procedure(None, None, None)
+    proc = Procedure(None, None, None, None)
