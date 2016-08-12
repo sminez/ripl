@@ -1,14 +1,20 @@
 from pygments.token import Token
+from prompt_toolkit.layout.lexers import PygmentsLexer
 
 from prompt_toolkit import prompt
 from prompt_toolkit.history import InMemoryHistory
-from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.clipboard.pyperclip import PyperclipClipboard
+
+from prompt_toolkit.layout.processors import ConditionalProcessor, \
+        HighlightMatchingBracketProcessor
+from prompt_toolkit.filters import IsDone
+
 
 from .bases import Env
 from .backend import Lexer, Parser
 from .types import RiplSymbol, RiplList
+from .repl_utils import RiplLexer, ripl_style
 
 import ripl.prelude as prelude
 
@@ -68,11 +74,6 @@ class RiplExecutor:
 
 class RiplRepl(RiplExecutor):
     def __init__(self):
-        self.completer = WordCompleter(
-            ('apply begin car cdr cons defn '
-             'eq? equal? list? symbol? number? '
-             'null? append length').split(),
-            ignore_case=False)
         super().__init__()
 
     def get_continuation_tokens(self, cli, width):
@@ -112,15 +113,21 @@ class RiplRepl(RiplExecutor):
 
         history = InMemoryHistory()
 
+        # Show matching parentheses, but only while editing.
+        highlight_parens = ConditionalProcessor(
+            processor=HighlightMatchingBracketProcessor(chars='[](){}'),
+            filter=~IsDone())
+
         try:
             while True:
                 user_input = prompt(
                         prompt_str,
+                        style=ripl_style,
+                        lexer=PygmentsLexer(RiplLexer),
+                        extra_input_processors=[highlight_parens],
                         history=history,
-                        multiline=True,
-                        wrap_lines=True,
+                        # multiline=True,
                         mouse_support=True,
-                        completer=self.completer,
                         enable_history_search=True,
                         clipboard=PyperclipClipboard(),
                         auto_suggest=AutoSuggestFromHistory())
