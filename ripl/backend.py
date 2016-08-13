@@ -2,8 +2,35 @@
 Classes that take unicode string input and run the
 conversion from sexp -> python usable code.
 '''
-from .utils import make_atom
-from .types import RiplList, RiplDict
+from .bases import Symbol
+
+
+def make_atom(token):
+    '''
+    Strings and numbers are kept, every other token becomes a symbol.
+    NOTE: only double quotes denote strings
+          will be using single quotes for quoting later.
+    --> String literals are handled in read_from_tokens.
+    '''
+    # TODO: other numeric types, bytes
+    if token.startswith('"') and token.endswith('"'):
+        return str(token[1:-1])
+    else:
+        try:
+            return int(token)
+        except ValueError:
+            try:
+                # See if we have a valid bin/oct/hex
+                base_prefixes = {"0b": 2, "0o": 8, "0x": 16}
+                for prefix, base in base_prefixes.items():
+                    if token.startswith(prefix):
+                        return int(token, base=base)
+                raise ValueError
+            except ValueError:
+                try:
+                    return float(token)
+                except ValueError:
+                    return Symbol(token)
 
 
 class Lexer:
@@ -99,7 +126,7 @@ class Parser:
                 if tokens[0] == ')':
                     # Special case of the empty list
                     tokens.pop(0)
-                    return RiplList()
+                    return []
 
                 # Read until the end of the current s-exp
                 while tokens[0] != ')':
@@ -144,14 +171,14 @@ class Parser:
         Parse a list literal and return the list and remaining tokens
         List literals are given as [...]
         '''
-        tmp = []
+        lst = []
 
         try:
             while tokens[0] != ']':
-                tmp.append(self.parse(tokens))
+                lst.append(self.parse(tokens))
             # drop the final bracket
             tokens.pop(0)
-            return ['(', 'quote', RiplList(tmp), ')'], tokens
+            return ['(', 'quote', lst, ')'], tokens
 
         except IndexError:
             raise SyntaxError('missing closing ] in list literal')
@@ -171,7 +198,9 @@ class Parser:
 
             if len(tmp) % 2 != 0:
                 raise SyntaxError("Invalid dict literal")
-            return RiplDict(tmp), tokens
+
+            pairs = [tmp[i:i+2] for i in range(0, len(tmp), 2)]
+            return {k: v for k, v in pairs}, tokens
 
         except IndexError:
             raise SyntaxError('missing closing } in dict literal')

@@ -11,10 +11,8 @@ from prompt_toolkit.layout.processors import ConditionalProcessor, \
 from prompt_toolkit.filters import IsDone
 
 
-from .bases import Env
-from .utils import make_atom
+from .bases import Env, Symbol
 from .backend import Lexer, Parser
-from .types import RiplSymbol, RiplList
 from .repl_utils import RiplLexer, ripl_style
 
 import ripl.prelude as prelude
@@ -29,7 +27,7 @@ class RiplExecutor:
     def __init__(self, use_prelude=True):
         self.environment = Env(use_standard=True)
         if use_prelude:
-            funcs = {RiplSymbol(k): v for k, v in vars(prelude).items()}
+            funcs = {Symbol(k): v for k, v in vars(prelude).items()}
             self.environment.update(funcs)
 
         self.lexer = Lexer()
@@ -40,8 +38,16 @@ class RiplExecutor:
         '''
         Convert a Python object back into a Lisp-readable string for display.
         '''
-        if isinstance(exp, RiplList):
+        if isinstance(exp, list):
+            # (1 2 ... n)
             return '(' + ' '.join(map(self.py_to_lisp_str, exp)) + ')'
+        if isinstance(exp, dict):
+            # {a 1, b 2, ... k v}
+            tmp = ['{} {}'.format(k, v) for k, v in exp.items()]
+            return '{' + ', '.join(tmp) + '}'
+        if isinstance(exp, tuple):
+            # (, 1 2 ... n)
+            return '(,' + ' '.join(map(self.py_to_lisp_str, exp)) + ')'
         else:
             return str(exp)
 
@@ -55,17 +61,20 @@ class RiplExecutor:
             try:
                 # Check to see if we have this in the current environment.
                 # NOTE: env.find returns the environment containing tkns.
-                return env.find(RiplSymbol(tkns))[tkns]
+                return env.find(Symbol(tkns))[tkns]
             except AttributeError:
                 # This is not a known symbol
-                return make_atom(tkns)
-        elif tkns == RiplList():
+                if isinstance(tkns, Symbol):
+                    raise NameError('symbol {} is not defined'.format(tkns))
+                else:
+                    return tkns
+        elif tkns == []:
             # got the emptylist
             return tkns
         else:                             # (proc arg...)
             call, *args = tkns
             try:
-                exp = self.syntax.find(RiplSymbol(call))[call]
+                exp = self.syntax.find(Symbol(call))[call]
                 return exp(args, self, env)
             except AttributeError:
                 proc = self.eval(tkns[0], env)

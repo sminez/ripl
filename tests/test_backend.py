@@ -1,5 +1,7 @@
 from unittest import TestCase
-from ripl.backend import Lexer, Parser
+
+from ripl.bases import Symbol
+from ripl.backend import Lexer, Parser, make_atom
 
 
 class LexerTest(TestCase):
@@ -35,3 +37,16 @@ class ParserTest(TestCase):
         tokens = self.lexer.get_tokens(string)
         parsed = self.parser.parse(tokens)
         self.assertEquals(parsed, ['print', ['+', 'spam', ' and eggs']])
+
+
+class AtomTest(TestCase):
+    def test_make_atom(self):
+        '''Tokens get parsed to the correct internal types'''
+        token1 = make_atom('print')
+        token2 = make_atom('"foo"')
+        token3 = make_atom('1')
+        token4 = make_atom('3.14')
+        self.assertEqual(type(token1), Symbol)
+        self.assertEqual(type(token2), str)
+        self.assertEqual(type(token3), int)
+        self.assertEqual(type(token4), float)
