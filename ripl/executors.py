@@ -12,6 +12,7 @@ from prompt_toolkit.filters import IsDone
 
 
 from .bases import Env
+from .utils import make_atom
 from .backend import Lexer, Parser
 from .types import RiplSymbol, RiplList
 from .repl_utils import RiplLexer, ripl_style
@@ -49,15 +50,15 @@ class RiplExecutor:
         Try to evaluate an expression in an environment.
         NOTE: Special language features and syntax found here.
         '''
-        # TODO: Break this into smaller, more testable chunks
-        if not isinstance(tkns, list):  # constant literal
+        if not isinstance(tkns, list):
+            # This is an atom: a symbol or a built-in type
             try:
                 # Check to see if we have this in the current environment.
                 # NOTE: env.find returns the environment containing tkns.
                 return env.find(RiplSymbol(tkns))[tkns]
             except AttributeError:
-                # We bottomed out so return it raw
-                return tkns
+                # This is not a known symbol
+                return make_atom(tkns)
         elif tkns == RiplList():
             # got the emptylist
             return tkns
@@ -73,7 +74,8 @@ class RiplExecutor:
 
 
 class RiplRepl(RiplExecutor):
-    def __init__(self):
+    def __init__(self, debug=False):
+        self.debug = debug
         super().__init__()
 
     def get_continuation_tokens(self, cli, width):
@@ -93,8 +95,12 @@ class RiplRepl(RiplExecutor):
                 print('> ' + self.py_to_lisp_str(val) + '\n')
         except Exception as e:
             print('{}: {}'.format(type(e).__name__, e))
+            if self.debug:
+                # Allow analysis of traceback
+                # NOTE: crashes the repl!
+                raise e
 
-    def repl(self, prompt_str='ζ > '):
+    def repl(self, prompt_str='λ く'):
         '''
         The main read eval print loop for RIPL.
         Uses prompt_toolkit:

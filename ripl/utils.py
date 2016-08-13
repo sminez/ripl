@@ -6,7 +6,8 @@ Tail calls...
 http://www.kylem.net/programming/tailcall.html
 http://stackoverflow.com/questions/13591970/does-python-optimize-tail-recursion
 '''
-from .types import RiplSymbol
+from .types import RiplInt, RiplFloat
+from .types import RiplSymbol, RiplString
 
 import functools
 import operator as op
@@ -50,6 +51,26 @@ def pyimport(module, env, _as=None, _from=None):
         env.update(defs)
 
     return env
+
+
+def make_atom(token):
+    '''
+    Numbers become numbers; every other token is a symbol.
+    NOTE: only double quotes denote strings
+          will be using single quotes for quoting later.
+    --> String literals are handled in read_from_tokens.
+    '''
+    # TODO: other numeric types, bytes
+    if token.startswith('"') and token.endswith('"'):
+        return RiplString(token[1:-1])
+    else:
+        try:
+            return RiplInt(token)
+        except ValueError:
+            try:
+                return RiplFloat(token)
+            except ValueError:
+                return RiplSymbol(token)
 
 
 def curry(func, *args, **kwargs):

@@ -1,6 +1,6 @@
 from unittest import TestCase
-from ripl.types import RiplFloat, RiplInt, RiplString
-from ripl.utils import _ripl_add
+from ripl.types import RiplSymbol, RiplString, RiplInt, RiplFloat
+from ripl.utils import _ripl_add, make_atom
 
 
 class UtilsTest(TestCase):
@@ -27,3 +27,14 @@ class UtilsTest(TestCase):
         args = ["string", RiplInt('5')]
         with self.assertRaises(TypeError):
             _ripl_add(*args)
+
+    def test_atom(self):
+        '''Tokens get parsed to the correct internal types'''
+        token1 = make_atom('print')
+        token2 = make_atom('"foo"')
+        token3 = make_atom('1')
+        token4 = make_atom('3.14')
+        self.assertEqual(type(token1), RiplSymbol)
+        self.assertEqual(type(token2), RiplString)
+        self.assertEqual(type(token3), RiplInt)
+        self.assertEqual(type(token4), RiplFloat)

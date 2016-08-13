@@ -1,6 +1,5 @@
 from unittest import TestCase
 from ripl.backend import Lexer, Parser
-from ripl.types import RiplSymbol, RiplString, RiplInt, RiplFloat
 
 
 class LexerTest(TestCase):
@@ -36,14 +35,3 @@ class ParserTest(TestCase):
         tokens = self.lexer.get_tokens(string)
         parsed = self.parser.parse(tokens)
         self.assertEquals(parsed, ['print', ['+', 'spam', ' and eggs']])
-
-    def test_atom(self):
-        '''Tokens get parsed to the correct internal types'''
-        token1 = self.parser.atom('print')
-        token2 = self.parser.atom('"foo"')
-        token3 = self.parser.atom('1')
-        token4 = self.parser.atom('3.14')
-        self.assertEqual(type(token1), RiplSymbol)
-        self.assertEqual(type(token2), RiplString)
-        self.assertEqual(type(token3), RiplInt)
-        self.assertEqual(type(token4), RiplFloat)

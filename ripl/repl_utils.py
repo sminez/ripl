@@ -23,6 +23,7 @@ ripl_style = style_from_pygments(MonokaiStyle, {
         Token.Operator: '#f4bc87',
         Token.Generic: '#d28b71',
         Token.Punctuation: '#c1c9db',
+        Token.Punctuation.Quoted: '#a89bb9',
     })
 
 
@@ -114,6 +115,7 @@ class RiplLexer(RegexLexer):
 
             # parentheses
             (r'(\(|\))', Punctuation),
+            (r"'(\(|\))", Punctuation.Quoted),
 
         ],
         'py-keywords': PythonLexer.tokens['keywords'],

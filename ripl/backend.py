@@ -2,8 +2,8 @@
 Classes that take unicode string input and run the
 conversion from sexp -> python usable code.
 '''
-from .types import RiplSymbol, RiplString, RiplList, RiplDict
-from .types import RiplInt, RiplFloat
+from .utils import make_atom
+from .types import RiplList, RiplDict
 
 
 class Lexer:
@@ -101,15 +101,20 @@ class Parser:
                     tokens.pop(0)
                     return RiplList()
 
+                # Read until the end of the current s-exp
                 while tokens[0] != ')':
+                    # De-sugar list literals
                     if tokens[0] == '[':
                         tokens.pop(0)
                         lst, tokens = self._parse_list_literal(tokens)
                         sexp.append(lst)
                         if tokens[0] == ')':
+                            # The list literal was at the end of the s-exp
                             return sexp
                         else:
+                            # Keep parsing!
                             sexp.append(self.parse(tokens))
+                    # De-sugar dict literals the same way
                     elif tokens[0] == '{':
                         tokens.pop(0)
                         dct, tokens = self._parse_dict_literal(tokens)
@@ -132,26 +137,7 @@ class Parser:
             raise SyntaxError('unexpected ) in input')
 
         else:
-            return self.atom(token)
-
-    def atom(self, token):
-        '''
-        Numbers become numbers; every other token is a symbol.
-        NOTE: only double quotes denote strings
-              will be using single quotes for quoting later.
-        --> String literals are handled in read_from_tokens.
-        '''
-        # TODO: other numeric types, bytes
-        if token.startswith('"') and token.endswith('"'):
-            return RiplString(token[1:-1])
-        else:
-            try:
-                return RiplInt(token)
-            except ValueError:
-                try:
-                    return RiplFloat(token)
-                except ValueError:
-                    return RiplSymbol(token)
+            return make_atom(token)
 
     def _parse_list_literal(self, tokens):
         '''
