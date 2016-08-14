@@ -41,20 +41,18 @@ def pyimport(module, env, _as=None, _from=None):
 
     if _as:
         defs = {Symbol('{}.{}'.format(_as, k)): v for k, v in mod}
-        env.update(defs)
     elif _from:
         defs = {Symbol(k): v for k, v in mod if k in _from}
-        env.update(defs)
     else:
         defs = {Symbol('{}.{}'.format(module, k)): v for k, v in mod}
-        env.update(defs)
 
+    env.update(defs)
     return env
 
 
-def curry(func, *args, **kwargs):
+def curry(func, *args):
     '''
-    Just an alias to functools.partial
+    Wrapper around functools.partial
         functools will use the _functools c version where possible
 
     add3 = curry(op.add, 3)
@@ -63,7 +61,10 @@ def curry(func, *args, **kwargs):
     RIPL SYNTAX
         Going to try having a curry macro that is invoked as:
         (define add3 ~(add 3))
-
-    This needs to be handled at the parsing stage...
     '''
-    return functools.partial(func, *args, **kwargs)
+    if (len(args) == 1) and (type(args[0]) == dict):
+        # allow splatting of a single dict
+        print(args[0])
+        return functools.partial(func, **args[0])
+    else:
+        return functools.partial(func, *args)
