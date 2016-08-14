@@ -35,8 +35,11 @@ class Env(dict):
         self.outer = outer
         if use_standard:
             self.init_standard_env()
+            self.CONTAINS_SYNTAX = False
         elif init_syntax:
             self.init_syntax()
+            # Using as a flag to avoid importing regular modules
+            self.CONTAINS_SYNTAX = True
 
     def find(self, var):
         '''Find the innermost Env where var appears.'''

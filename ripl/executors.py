@@ -97,8 +97,8 @@ class RiplRepl(RiplExecutor):
         Catches and displays output and exceptions.
         '''
         try:
-            raw_tokens = self.lexer.get_tokens(exp)
-            parsed_tokens = self.parser.parse(raw_tokens)
+            raw_tokens = self.lexer.lex(exp)
+            parsed_tokens = next(self.parser.parse(raw_tokens))
             val = self.eval(parsed_tokens, self.environment)
             if val is not None:
                 print('> ' + self.py_to_lisp_str(val) + '\n')

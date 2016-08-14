@@ -3,7 +3,7 @@ import argparse
 from .executors import RiplRepl
 
 
-__version__ = "0.0.2"
+__version__ = "0.1.1"
 
 
 def main(argv=None):
