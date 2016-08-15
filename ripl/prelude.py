@@ -1,6 +1,17 @@
 '''
 Common LISPy / Haskelly functions to use inside RIPL
 
+The aim of this is to enable crazyness like the following:
+def fiblist():
+   """generate an infinite list of fibonacci numbers beginning [1,2,3,5...]"""
+   yield 1
+   next_fibs = scanl(op.add, 2, fiblist())
+   while True:
+       yield from next_fibs
+
+take(10, fiblist()) --> [1,2,3,5,8,13,21,34,55,89]
+
+
 Std Lib Functional stuff
 https://docs.python.org/3.4/library/itertools.html
 https://docs.python.org/3.4/library/functools.html
@@ -41,14 +52,20 @@ def foldr(func, acc, cont):
 
 
 def scanl(func, acc, cont):
-    ''' :: f(a, a) -> a, Itr|Gen[a] -> [a]
+    ''' :: f(a, a) -> a, Itr|Gen[a] -> Gen[a]
     Use a given accumulator value to build a list of values obtained
     by repeatedly applying acc = func(acc, next(list)) from the left.
     '''
     yield acc
-    for c in cont:
-        acc = func(acc, c)
-        yield acc
+    while True:
+        try:
+            c = next(cont)
+            acc = func(acc, c)
+            yield acc
+        except TypeError:
+            cont = iter(cont)
+        except StopIteration:
+            raise StopIteration
 
 
 def scanr(func, acc, itr):
@@ -60,31 +77,35 @@ def scanr(func, acc, itr):
     return itertools.accumulate(list_with_acc, func)
 
 
-def take(num, container):
-    ''' :: Int, Itr|Gen[*T] -> Gen[*T]
+def take(num, cont):
+    ''' :: Int, Itr|Gen[*T] -> List[*T]
     Return up to the first `num` elements of an iterable or generator.
     '''
     try:
-        yield from container[:num]
-    except ValueError:
+        return cont[:num]
+    except TypeError:
+        # Taking from a generator
+        num_items = []
         for n in range(num):
-            yield from container
+            num_items.append(next(cont))
+        return num_items
 
 
-def drop(num, container):
-    ''' :: Int, Itr|Gen[*T] -> Gen[*T]
+def drop(num, cont):
+    ''' :: Int, Itr|Gen[*T] -> List[*T]
     Return everything but the first `num` elements of itr
     '''
-    if hasattr(container, '__iter__'):
-        container = container[num:]
-    else:
+    try:
+        items = cont[num:]
+    except TypeError:
+        items = []
         for n in range(num):
             # Fetch and drop the initial elements
             try:
-                next(container)
+                items.append(next(cont))
             except StopIteration:
-                yield []
-    yield from container
+                break
+    return items
 
 
 def dropWhile(predicate, container):
@@ -109,3 +130,10 @@ def flatten(lst):
     '''
     _list = ([x] if not isinstance(x, list) else flatten(x) for x in lst)
     return sum(_list, [])
+
+
+def drain(gen):
+    ''' :: Gen[*T] -> List[*T]
+    Given a generator, convert it to a list.
+    '''
+    return [elem for elem in gen]
