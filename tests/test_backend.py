@@ -37,7 +37,7 @@ class LexerTest(TestCase):
             self.assertEqual(match.lastgroup, expected_tag)
         actual_tkns = self.lexer.lex(string)
         token = next(actual_tkns)
-        self.assertEqual(token, Token('SYMBOL', 'kept', 1, 40))
+        self.assertEqual(token, Token('SYMBOL', 'kept', 1, 45))
         # Confirm that that was the only token
         with self.assertRaises(StopIteration):
             token = next(actual_tkns)
