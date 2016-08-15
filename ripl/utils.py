@@ -6,7 +6,7 @@ Tail calls...
 http://www.kylem.net/programming/tailcall.html
 http://stackoverflow.com/questions/13591970/does-python-optimize-tail-recursion
 '''
-from .types import RiplSymbol
+from .bases import Symbol
 
 import functools
 import operator as op
@@ -40,21 +40,19 @@ def pyimport(module, env, _as=None, _from=None):
     mod = vars(raw).items()
 
     if _as:
-        defs = {RiplSymbol('{}.{}'.format(_as, k)): v for k, v in mod}
-        env.update(defs)
+        defs = {Symbol('{}.{}'.format(_as, k)): v for k, v in mod}
     elif _from:
-        defs = {RiplSymbol(k): v for k, v in mod if k in _from}
-        env.update(defs)
+        defs = {Symbol(k): v for k, v in mod if k in _from}
     else:
-        defs = {RiplSymbol('{}.{}'.format(module, k)): v for k, v in mod}
-        env.update(defs)
+        defs = {Symbol('{}.{}'.format(module, k)): v for k, v in mod}
 
+    env.update(defs)
     return env
 
 
-def curry(func, *args, **kwargs):
+def curry(func, *args):
     '''
-    Just an alias to functools.partial
+    Wrapper around functools.partial
         functools will use the _functools c version where possible
 
     add3 = curry(op.add, 3)
@@ -63,7 +61,10 @@ def curry(func, *args, **kwargs):
     RIPL SYNTAX
         Going to try having a curry macro that is invoked as:
         (define add3 ~(add 3))
-
-    This needs to be handled at the parsing stage...
     '''
-    return functools.partial(func, *args, **kwargs)
+    if (len(args) == 1) and (type(args[0]) == dict):
+        # allow splatting of a single dict
+        print(args[0])
+        return functools.partial(func, **args[0])
+    else:
+        return functools.partial(func, *args)

@@ -3,7 +3,7 @@ import argparse
 from .executors import RiplRepl
 
 
-__version__ = "0.0.2"
+__version__ = "0.1.1"
 
 
 def main(argv=None):
@@ -26,6 +26,12 @@ def main(argv=None):
         required=False,
     )
 
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        required=False,
+    )
+
     if argv:
         args = parser.parse_args([argv])
     else:
@@ -37,5 +43,6 @@ def main(argv=None):
         repl = RiplRepl()
         repl.eval_and_print(args.script, repl.environment)
     else:
-        repl = RiplRepl()
+        # Spin up a repl with optional debug
+        repl = RiplRepl(debug=args.debug)
         repl.repl()

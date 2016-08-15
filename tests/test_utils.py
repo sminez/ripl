@@ -1,29 +1,96 @@
 from unittest import TestCase
-from ripl.types import RiplFloat, RiplInt, RiplString
-from ripl.utils import _ripl_add
+
+from ripl.bases import Env, Symbol
+from ripl.utils import _ripl_add, curry, pyimport
 
 
-class UtilsTest(TestCase):
+class RiplAddTest(TestCase):
     # NOTE: all procedures will be given *args at the moment
     def test_add_floats(self):
-        args = [RiplFloat(x) for x in ['2', '1.14', '0.00159']]
+        '''Just adding floats works'''
+        args = [2, 1.14, 0.00159]
         self.assertEqual(3.14159, _ripl_add(*args))
 
     def test_add_ints(self):
-        args = [RiplInt(x) for x in ['2', '1', '17']]
+        '''Just adding ints works'''
+        args = [2, 1, 17]
         self.assertEqual(20, _ripl_add(*args))
 
     def test_add_mixed(self):
-        args = [RiplInt(x) for x in ['2', '1', '17']]
-        args += [RiplFloat(x) for x in ['2', '1.14', '0.00159']]
+        '''Adding mixed numerics works'''
+        args = [2, 1, 17]
+        args += [2.0, 1.14, 0.00159]
         self.assertEqual(23.14159, _ripl_add(*args))
 
     def test_add_strings(self):
-        args = [RiplString(x) for x in ["this", " and ", "that"]]
+        '''Strings get joined'''
+        args = ["this", " and ", "that"]
         self.assertEqual("this and that", _ripl_add(*args))
 
     def test_add_int_str(self):
         '''You can't add strings and numerics'''
-        args = ["string", RiplInt('5')]
+        args = ["string", 5]
         with self.assertRaises(TypeError):
             _ripl_add(*args)
+
+
+class PyimportTest(TestCase):
+    def test_import_bare_env(self):
+        '''Importing to an empty Env works'''
+        updated_env = pyimport('math', Env())
+        self.assertTrue(Symbol('math.sin') in updated_env)
+
+    def test_import_std_env(self):
+        '''Importing to the standard Env works and doesn't clobber'''
+        updated_env = pyimport('math', Env(use_standard=True))
+        self.assertTrue(Symbol('math.sin') in updated_env)
+        self.assertTrue(Symbol('car') in updated_env)
+
+    def test_import_bad_module(self):
+        '''Trying to import a non-existant module fails correctly'''
+        with self.assertRaises(ImportError):
+            pyimport('notamodule', Env())
+
+
+class CurryTest(TestCase):
+    def test_simple_positional(self):
+        '''
+        A func with two positional args, given one positional arg
+        returns a func that takes one positional arg.
+        '''
+        def func(a, b):
+            return '1st: {}, 2nd: {}'.format(a, b)
+        curried = curry(func, 'first')
+        self.assertEqual(curried('second'), '1st: first, 2nd: second')
+
+    def test_chained_positional(self):
+        '''
+        Chaining two calls two curry with positional args works
+        '''
+        def func2(a, b, c):
+            return '{} {} {}!'.format(a, b, c)
+        curried = curry(func2, 'this')
+        double_curried = curry(curried, 'is')
+        self.assertEqual(double_curried('awesome'), 'this is awesome!')
+
+    def test_simple_keyword(self):
+        '''
+        A func with two keyword args, given one keyword arg
+        returns a func that takes one positional arg.
+        '''
+        def func(a, b):
+            return '1st: {}, 2nd: {}'.format(a, b)
+        curried = curry(func, {'a': 'first'})
+        self.assertEqual(curried(**{'b': 'second'}), '1st: first, 2nd: second')
+
+    def test_chained_keyword(self):
+        '''
+        Chaining two calls two curry with keyword args works
+        '''
+        def func2(a, b, c):
+            return '{} {} {}?'.format(a, b, c)
+        curried = curry(func2, {'b': 'this'})
+        double_curried = curry(curried, {'a': 'is'})
+        self.assertEqual(
+                double_curried(**{'c': 'awesome'}),
+                'is this awesome?')

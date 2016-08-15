@@ -11,9 +11,8 @@ from prompt_toolkit.layout.processors import ConditionalProcessor, \
 from prompt_toolkit.filters import IsDone
 
 
-from .bases import Env
+from .bases import Env, Symbol
 from .backend import Lexer, Parser
-from .types import RiplSymbol, RiplList
 from .repl_utils import RiplLexer, ripl_style
 
 import ripl.prelude as prelude
@@ -28,7 +27,7 @@ class RiplExecutor:
     def __init__(self, use_prelude=True):
         self.environment = Env(use_standard=True)
         if use_prelude:
-            funcs = {RiplSymbol(k): v for k, v in vars(prelude).items()}
+            funcs = {Symbol(k): v for k, v in vars(prelude).items()}
             self.environment.update(funcs)
 
         self.lexer = Lexer()
@@ -39,8 +38,16 @@ class RiplExecutor:
         '''
         Convert a Python object back into a Lisp-readable string for display.
         '''
-        if isinstance(exp, RiplList):
+        if isinstance(exp, list):
+            # (1 2 ... n)
             return '(' + ' '.join(map(self.py_to_lisp_str, exp)) + ')'
+        if isinstance(exp, dict):
+            # {a 1, b 2, ... k v}
+            tmp = ['{} {}'.format(k, v) for k, v in exp.items()]
+            return '{' + ', '.join(tmp) + '}'
+        if isinstance(exp, tuple):
+            # (, 1 2 ... n)
+            return '(,' + ' '.join(map(self.py_to_lisp_str, exp)) + ')'
         else:
             return str(exp)
 
@@ -49,22 +56,25 @@ class RiplExecutor:
         Try to evaluate an expression in an environment.
         NOTE: Special language features and syntax found here.
         '''
-        # TODO: Break this into smaller, more testable chunks
-        if not isinstance(tkns, list):  # constant literal
+        if not isinstance(tkns, list):
+            # This is an atom: a symbol or a built-in type
             try:
                 # Check to see if we have this in the current environment.
                 # NOTE: env.find returns the environment containing tkns.
-                return env.find(RiplSymbol(tkns))[tkns]
+                return env.find(Symbol(tkns))[tkns]
             except AttributeError:
-                # We bottomed out so return it raw
-                return tkns
-        elif tkns == RiplList():
+                # This is not a known symbol
+                if isinstance(tkns, Symbol):
+                    raise NameError('symbol {} is not defined'.format(tkns))
+                else:
+                    return tkns
+        elif tkns == []:
             # got the emptylist
             return tkns
         else:                             # (proc arg...)
             call, *args = tkns
             try:
-                exp = self.syntax.find(RiplSymbol(call))[call]
+                exp = self.syntax.find(Symbol(call))[call]
                 return exp(args, self, env)
             except AttributeError:
                 proc = self.eval(tkns[0], env)
@@ -73,7 +83,8 @@ class RiplExecutor:
 
 
 class RiplRepl(RiplExecutor):
-    def __init__(self):
+    def __init__(self, debug=False):
+        self.debug = debug
         super().__init__()
 
     def get_continuation_tokens(self, cli, width):
@@ -86,15 +97,19 @@ class RiplRepl(RiplExecutor):
         Catches and displays output and exceptions.
         '''
         try:
-            raw_tokens = self.lexer.get_tokens(exp)
-            parsed_tokens = self.parser.parse(raw_tokens)
+            raw_tokens = self.lexer.lex(exp)
+            parsed_tokens = next(self.parser.parse(raw_tokens))
             val = self.eval(parsed_tokens, self.environment)
             if val is not None:
                 print('> ' + self.py_to_lisp_str(val) + '\n')
         except Exception as e:
             print('{}: {}'.format(type(e).__name__, e))
+            if self.debug:
+                # Allow analysis of traceback
+                # NOTE: crashes the repl!
+                raise e
 
-    def repl(self, prompt_str='ζ > '):
+    def repl(self, prompt_str='λ く'):
         '''
         The main read eval print loop for RIPL.
         Uses prompt_toolkit:
