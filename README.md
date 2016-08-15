@@ -57,7 +57,7 @@ set everything up and give you the `ripl` command.
 - [ ] Break the evaluator into smaller pieces
 - [ ] A prelude of functional style functions and operators
   -  [x] fold, scan, product, filter, reverse
-  - [ ] take/drop{while}
+  - [x] take/drop{while}
   - [ ] quick file handling
   - [x] Currying / partial application (planning on having `~(sexp)` as syntax for this)
   - [ ] zipwith
