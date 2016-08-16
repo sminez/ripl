@@ -1,6 +1,6 @@
 import argparse
 
-from .executors import RiplRepl
+from .evaluators import RiplRepl
 
 
 __version__ = "0.1.1"

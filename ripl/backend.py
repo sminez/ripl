@@ -5,7 +5,7 @@ conversion from sexp -> python usable code.
 import re
 from itertools import chain
 
-from .bases import Symbol
+from .bases import Symbol, EmptyList, RList, RDict, RVector
 
 
 class Tag:
@@ -40,29 +40,35 @@ RIPL_TAGS = [
         Tag(r';.*\n?',                              'COMMENT'),
         Tag(r'\'\(.+\)',                            'QUOTED_SEXP'),
         Tag(r'\'.+(?=[\)\]}\s])?',                  'QUOTED_ATOM'),
-        Tag(r'\`\(.+\)',                            'QUASI_QUOTED'),
-        Tag(r'~(?P<p>[\(\[}]).+(?P=p)',             'CURRIED_SEXP'),
-        Tag(r'\(,.+\)',                             'TUPLE'),
+        Tag(r'`\(.+\)',                             'QUASI_QUOTED'),
+        Tag(r'~\(.+\)',                             'CURRIED_SEXP'),
+        # Tag(r'\(,.+\)',                             'TUPLE'),
         Tag(r'(\(\)|\s*None)',                      'NULL'),
+        # () {} []
         Tag(r'\(',                                  'PAREN_OPEN'),
         Tag(r'\)',                                  'PAREN_CLOSE'),
         Tag(r'\[',                                  'BRACKET_OPEN'),
         Tag(r'\]',                                  'BRACKET_CLOSE'),
         Tag(r'{',                                   'BRACE_OPEN'),
         Tag(r'}',                                   'BRACE_CLOSE'),
-        Tag(r'-?\d+\.\d+',                          'NUM_FLOAT'),
-        Tag(r'-?\d+',                               'NUM_INT'),
-        # TODO: add binary, ocal and hex?
-        # base_prefixes = {"0b": 2, "0o": 8, "0x": 16}
-        # for prefix, base in base_prefixes.items():
-        #     if token.startswith(prefix):
-        #         return int(token, base=base)
-        Tag(r'"""([^"]*)"""',                       'DOCSTRING'),
-        Tag(r'"([^"]*)"',                           'STRING'),
-        # Need to check the closing but not consume it
-        Tag(r'[^()[\]{}\s\#,\.]+(?=[\)\]}\s])?',    'SYMBOL'),
+        # Numerics
+        Tag(r'-?\d+\.?\d*[+-]\d+\.?\d*j',           'COMPLEX'),
+        Tag(r'-?\d+\.?\d*j',                        'COMPLEX_PURE'),
+        Tag(r'-?\d+\.\d+',                          'FLOAT'),
+        Tag(r'-?0b[0-1]+',                          'INT_BIN'),
+        Tag(r'-?0o[0-8]+',                          'INT_OCT'),
+        Tag(r'-?0x[0-9a-fA-F]+',                    'INT_HEX'),
+        Tag(r'-?\d+',                               'INT'),
+        # Deliminators
+        Tag(r',',                                   'COMMA'),
+        Tag(r'\.',                                  'DOT'),
         Tag(r'\n',                                  'NEWLINE'),
         Tag(r'\s+',                                 'WHITESPACE'),
+        # Strings
+        Tag(r'"""([^"]*)"""',                       'DOCSTRING'),
+        Tag(r'"([^"]*)"',                           'STRING'),
+        Tag(r':[^()[\]{}\s\#,\.]+(?=[\)\]}\s])?',   'KEYWORD'),
+        Tag(r'[^()[\]{}\s\#,\.]+(?=[\)\]}\s])?',    'SYMBOL'),
         Tag(r'.',                                   'SYNTAX_ERROR'),
         ]
 
@@ -83,9 +89,9 @@ def make_atom(token):
         return token.val
 
 
-class Lexer:
+class Reader:
     '''
-    Breaks a string input into a python list of tokens.
+    Breaks a string input into a python list of values.
     Double quoted string literals (including whitespace chars)
     are preserved as passed through as single tokens.
 
@@ -120,6 +126,7 @@ class Lexer:
             - S-expressions are recursively tokenized and nested into
               a single output list: [atom, atom, [atom, [atom, atom], atom]]
         '''
+        int_bases = {'INT': 10, 'INT_BIN': 2, 'INT_OCT': 8, 'INT_HEX': 16}
         # Remove surrounding whitespace
         string = string.strip()
 
@@ -136,14 +143,14 @@ class Lexer:
             # Take the selected version if we have it
             group = [g for g in match.groups() if g is not None]
             source_txt = group[1] if len(group) == 2 else match.group(lex_tag)
-            if lex_tag is 'NEWLINE':
+            if lex_tag == 'SYNTAX_ERROR':
+                # There was something that we didn't recognise
+                raise SyntaxError('Unable to parse: {}'.format(source_txt))
+            elif lex_tag is 'NEWLINE':
                 line_start = match.end()
                 line_num += 1
             elif lex_tag in 'COMMENT COMMENT_SEXP WHITESPACE'.split():
                 pass
-            elif lex_tag == 'SYNTAX_ERROR':
-                # There was something that we didn't recognise
-                raise SyntaxError('Unable to parse: {}'.format(source_txt))
             elif lex_tag.startswith('QUOTED'):
                 sub = '(quote ' + source_txt[1:] + ')'
                 yield self.reglex(sub)
@@ -154,21 +161,23 @@ class Lexer:
                 sub = '(curry ' + source_txt[1:] + ')'
                 yield self.reglex(sub)
             else:
-                # Convert numerics now rather than in the parser
-                if lex_tag == 'NUM_INT':
-                    val = int(source_txt)
-                elif lex_tag == 'NUM_FLOAT':
+                # NOTE: We have something that we can convert to a value
+                if lex_tag == 'NULL':
+                    val = EmptyList()
+                elif lex_tag in int_bases:
+                    val = int(source_txt, int_bases[lex_tag])
+                elif lex_tag == 'FLOAT':
                     val = float(source_txt)
+                elif lex_tag.startswith('COMPLEX'):
+                    val = complex(source_txt)
+                    # regex groups need to be distinct so we differentiate
+                    # above as a single regex is huge and an eyesore.
+                    lex_tag = 'COMPLEX'
                 else:
                     val = source_txt
                 column = match.start() - line_start
                 yield Token(lex_tag, val, line_num, column)
 
-
-class Parser:
-    '''
-    Converts a stream of input tokens into a nested list of internal.
-    '''
     def parse(self, tokens):
         ''' :: gen(Token) -> List[Symbol|String|int|float]
         ```````````````````````````````````````````````````````````````````````
@@ -192,37 +201,33 @@ class Parser:
         for token in tokens:
             if token.tag == 'PAREN_OPEN':
                 # Start of an s-expression, drop the intial paren
-                sexp = []
                 token = next(tokens)
+                sexp = []
                 if token.tag == 'PAREN_CLOSE':
                     # Special case of the empty list
-                    # TODO: make an object for this?
-                    yield []
+                    yield []  # EmptyList()
                 else:
                     # Read until the end of the current s-exp
                     while token.tag != 'PAREN_CLOSE':
-                        # De-sugar list literals
-                        if token.tag == 'BRACKET_OPEN':
-                            # discard the opening bracket
-                            lst, tokens = self._parse_list(tokens)
-                            sexp.append(lst)
-                        # De-sugar dict literals the same way
-                        elif token.tag == 'BRACE_OPEN':
-                            dct, tokens = self._parse_dict(tokens)
-                            sexp.append(dct)
-                        else:
-                            # Replace the token and pass everything through
-                            # to check for nesting.
-                            tokens = chain([token], tokens)
-                            sexp.append(next(self.parse(tokens)))
-                        # fetch the next token and loop
+                        tokens = chain([token], tokens)
+                        sexp.append(next(self.parse(tokens)))
                         token = next(tokens)
+                    yield RList(sexp)
+            # TODO: Implement vectors vs linked lists
+            # De-sugar list literals
+            elif token.tag == 'BRACKET_OPEN':
+                # start of a list literal, drop the initial bracket
+                list_literal, tokens = self._parse_list(tokens)
+                yield list_literal
+            # De-sugar dict literals
+            elif token.tag == 'BRACE_OPEN':
+                dict_literal, tokens = self._parse_dict(tokens)
+                yield dict_literal
 
-                    # NOTE: implicitly dropping the final paren
-                    yield sexp
-
-            elif token.tag == 'PAREN_CLOSE':
-                raise SyntaxError('unexpected ) in input')
+            elif token.tag in 'PAREN_CLOSE BRACKET_CLOSE BRACE_CLOSE'.split():
+                warning = 'unexpected {} in input (line {} col {})'.format(
+                        token.val, token.line, token.col)
+                raise SyntaxError(warning)
 
             else:
                 yield make_atom(token)
@@ -234,35 +239,38 @@ class Parser:
             Note: This makes a list in memory and then passes it back to parse!
         '''
         tmp = []
-
-        for token in tokens:
+        token = next(tokens)
+        try:
             while token.tag != 'BRACKET_CLOSE':
                 tmp.append(token)
+                token = next(tokens)
             # Drop the final bracket
-            parsed = [v if type(v) == list else v for v in self.parse(tmp)]
-            return ['(', 'quote', parsed, ')'], tokens
-        # If we hit here then there was an error in the input.
-        raise SyntaxError('missing closing ] in list literal')
+            parsed = RVector([v for v in self.parse(tmp)])
+            return ['quote', parsed], tokens
+        except StopIteration:
+            # If we hit here then there was an error in the input.
+            raise SyntaxError('missing closing ] in list literal.')
 
     def _parse_dict(self, tokens):
         ''' :: gen(token) -> Dict{}, gen(Tokens)
-        Parse a list literal and return the list and remaining tokens
-        List literals are given as [...]
+        Parse a dict literal and return the dict and remaining tokens
+        Dict literals are given as {k1 v1, k2 v2, ...}
         '''
         tmp = []
-
-        for token in tokens:
+        token = next(tokens)
+        try:
             while token.tag != 'BRACE_CLOSE':
-                tmp.append(token)
-            # NOTE: Dropping the final brace implicitly here
-
-            parsed = [v if type(v) == list else v for v in self.parse(tmp)]
-
+                if token.tag != 'COMMA':
+                    tmp.append(token)
+                token = next(tokens)
+            # Drop the final brace
+            parsed = [v for v in self.parse(tmp)]
             if len(parsed) % 2 != 0:
+                # We didn't get key/value pairs
                 raise SyntaxError("Invalid dict literal")
 
             pairs = [parsed[i:i+2] for i in range(0, len(parsed), 2)]
-            return {k: v for k, v in pairs}, tokens
-
-        # If we hit here then there was an error in the input.
-        raise SyntaxError('missing closing } in dict literal')
+            return RDict({k: v for k, v in pairs}), tokens
+        except StopIteration:
+            # If we hit here then there was an error in the input.
+            raise SyntaxError('missing closing } in dict literal.')

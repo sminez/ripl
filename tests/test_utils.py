@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from ripl.bases import Env, Symbol
+from ripl.bases import Scope, Symbol
 from ripl.utils import _ripl_add, curry, pyimport
 
 
@@ -35,21 +35,21 @@ class RiplAddTest(TestCase):
 
 
 class PyimportTest(TestCase):
-    def test_import_bare_env(self):
-        '''Importing to an empty Env works'''
-        updated_env = pyimport('math', Env())
-        self.assertTrue(Symbol('math.sin') in updated_env)
+    def test_import_bare_scope(self):
+        '''Importing to an empty Scope works'''
+        updated_scope = pyimport('math', Scope())
+        self.assertTrue(Symbol('math.sin') in updated_scope)
 
-    def test_import_std_env(self):
-        '''Importing to the standard Env works and doesn't clobber'''
-        updated_env = pyimport('math', Env(use_standard=True))
-        self.assertTrue(Symbol('math.sin') in updated_env)
-        self.assertTrue(Symbol('car') in updated_env)
+    def test_import_std_scope(self):
+        '''Importing to the standard Scope works and doesn't clobber'''
+        updated_scope = pyimport('math', Scope(use_standard=True))
+        self.assertTrue(Symbol('math.sin') in updated_scope)
+        self.assertTrue(Symbol('car') in updated_scope)
 
     def test_import_bad_module(self):
         '''Trying to import a non-existant module fails correctly'''
         with self.assertRaises(ImportError):
-            pyimport('notamodule', Env())
+            pyimport('notamodule', Scope())
 
 
 class CurryTest(TestCase):

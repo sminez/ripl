@@ -1,18 +1,18 @@
 from unittest import TestCase
-from ripl.bases import Env
+from ripl.bases import Scope
 
 
-class EnvTest(TestCase):
-    env = Env()
+class ScopeTest(TestCase):
+    '''This is just sanity checking my use of ChainMap'''
+    scope = Scope()
 
     def test_find_succeed(self):
         '''We return the env if the var is in it'''
-        self.env.update({"foo": "bar"})
-        returned_env = self.env.find("foo")
-        self.assertEqual(returned_env, self.env)
+        self.scope.update({"foo": "bar"})
+        returned = self.scope["foo"]
+        self.assertEqual(returned, "bar")
 
     def test_find_fail(self):
-        '''We get a NameError if we try to access an undefined variable'''
-        with self.assertRaises(AttributeError):
-            returned_env = self.env.find("foo")
-            self.assertEqual(returned_env, self.env)
+        '''We get None if we try to access an undefined variable'''
+        with self.assertRaises(KeyError):
+            self.scope["foo"]

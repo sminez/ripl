@@ -1,53 +1,165 @@
 import functools
+import collections
 import operator as op
 
 
 class Symbol:
-    '''Internal representation of symbols'''
+    '''
+    Internal representation of symbols
+    Symbols can be bound to values using (define Symbol Value)
+    '''
     def __init__(self, string):
         self.str = string
 
     def __repr__(self):
-        # NOTE: not sure if this is a good idea...
-        # raise NameError('name {} is not defined'.format(self.str))
         return self.str
 
     def __hash__(self):
         return hash(self.str)
 
     def __eq__(self, other):
-        try:
+        if isinstance(other, Symbol):
             return self.str == other.str
-        except AttributeError:
-            # comp to raw string
+
+
+class Keyword:
+    '''
+    Internal representation of Keywords
+    Unlike symbols, keywords can only refer to themselves
+        i.e. (define :keyword "foo") is a syntax error
+    Main intended use is for keys in dicts.
+    '''
+    def __init__(self, string):
+        self.str = string
+
+    def __repr__(self):
+        return ':' + self.str
+
+    def __hash__(self):
+        return hash(':' + self.str)
+
+    def __eq__(self, other):
+        if isinstance(other, Keyword):
+            return self.str == other.str
+        else:
+            return False
+
+    def _keyword_comp(self, other):
+        '''Used for when we store something as a keyword internally'''
+        if isinstance(other, Symbol):
+            return self.str == other.str
+        else:
             return self.str == other
 
 
-class Env(dict):
+class RList(collections.deque):
+    '''Attempt at a LISP style linked list'''
+    def _cons(self, other):
+        # Need to reverse otherwise (cons '(1 2) `(3 4)) -> (2 1 3 4)
+        for elem in other[::-1]:
+            self.extendleft(elem)
+
+    def __call__(self, index):
+        '''Collections are mappings to values'''
+        return self[index]
+
+
+class EmptyList(RList):
+    def __eq__(self, other):
+        if other is None:
+            return True
+        else:
+            if isinstance(other, RList):
+                return self == other
+
+    def __call__(self, index):
+        '''Collections are mappings to values'''
+        if index == 0:
+            return self
+        else:
+            raise IndexError
+
+    def __add__(self, other):
+        # Don't want to pass on the `self == None` behaviour
+        return RList(other)
+
+
+class RVector(list):
+    '''Python lists are really vectors so rename them and make cons work'''
+    def _cons(self, other):
+        '''cons should always extend on the left'''
+        return other + self
+
+    def __call__(self, index):
+        '''Collections are mappings to values'''
+        return self[index]
+
+
+class RDict(dict):
+    '''Make cons work for dicts'''
+    def _cons(self, other):
+        '''as dicts have no order, just update if possible'''
+        if isinstance(other, dict):
+            self.update(other)
+        else:
+            pairs = [other[i:i+2] for i in range(0, len(other), 2)]
+            self.update({k: v for k, v in pairs})
+
+    def __call__(self, key):
+        '''Collections are mappings to values'''
+        return self[key]
+
+
+class Scope(collections.ChainMap):
     '''
-    A dict of {Symbol('var'): val} pairs, with an outer Env.
-    Used for storing and looking up the current environment.
+    See: https://docs.python.org/3.5/library/collections.html
+
+    A dict of {Symbol('var'): val} pairs, with a single outer Scope
+    enclosing it unless it is the GLOBAL Scope.
+        These are used to store and looking up the current scope of an
+        operation.
+
+    RIPL functions are closures, implemented as a reference to the
+    current Scope when they are defined.
+        NOTE: Scopes - like all other things in RIPL - are first class
+              values that can be passed and manipulated.
+          --> Alterations to an outer Scope do not leave the execution
+              of the function making the change.
     '''
-    def __init__(self, args=[], arg_vals=[], outer=None,
+    def __init__(self, args=[], arg_vals=[],
                  use_standard=False, init_syntax=False):
+        super().__init__()
         # Bind function arguments to the local scope
         self.update(zip([Symbol(p) for p in args], arg_vals))
-        self.outer = outer
         if use_standard:
-            self.init_standard_env()
+            self.init_standard_scope()
             self.CONTAINS_SYNTAX = False
         elif init_syntax:
             self.init_syntax()
             # Using as a flag to avoid importing regular modules
             self.CONTAINS_SYNTAX = True
 
-    def find(self, var):
-        '''Find the innermost Env where var appears.'''
-        return self if (var in self) else self.outer.find(var)
-
-    def init_standard_env(self):
+    def _inner_scope(self, args=[], arg_vals=[]):
         '''
-        An environment with some standard procedures to get started.
+        Build a new scope that is the child of this one.
+        Optionally bind in new paramaters
+        '''
+        inner_scope = self.new_child()
+        if len(args) == 1:
+            if isinstance(arg_vals, dict):
+                # Should be equivalent to **kwargs
+                inner_scope.update(arg_vals)
+            else:
+                # This should be the equivalent of *args
+                inner_scope.update({Symbol(args): [a for a in arg_vals]})
+        else:
+            inner_scope.update(zip([Symbol(p) for p in args], arg_vals))
+
+        return inner_scope
+
+    def init_standard_scope(self):
+        '''
+        A scope with some standard procedures to get started.
         '''
         py_builtins = {Symbol(k): v for k, v in __builtins__.items()}
         self.update(py_builtins)
@@ -57,6 +169,7 @@ class Env(dict):
             Symbol('-'): op.sub,
             Symbol('*'): op.mul,
             Symbol('/'): op.truediv,
+            Symbol('%'): op.mod,
             Symbol('>'): op.gt,
             Symbol('<'): op.lt,
             Symbol('>='): op.ge,
@@ -71,8 +184,8 @@ class Env(dict):
             Symbol('begin'): lambda *x: x[-1],
             Symbol('car'): lambda x: x[0],
             Symbol('cdr'): lambda x: x[1:],
-            Symbol('cons'): lambda x, y: [x] + y,        # LISPy
-            Symbol(':'): lambda x, y: [x] + y,           # Haskelly
+            Symbol('cons'): lambda x, y: y._cons(x),     # LISPy
+            Symbol(':'): lambda x, y: y._cons(x),        # Haskelly
             Symbol('not'): op.not_,
             Symbol('length'): len
             }
@@ -108,13 +221,13 @@ class Env(dict):
     def init_syntax(self):
         '''
         Built-in language features for use in the evaluator.
-        User defined macros will be stored in the same Env as these.(?)
+        User defined macros will be stored in the same Scope as these.(?)
 
         All macros will be passed a list of tokens, and executor that will
-        handle eval and an environment to evaluate in.
+        handle eval and an scope to evaluate in.
         '''
         # NOTE: AttributeError will be caught and not passed up the call stack!
-        def _quote(tokens, executor, env):
+        def _quote(tokens, executor, scope):
             '''
             Quote an atom or s-expression.
                 (quote exp)
@@ -123,7 +236,7 @@ class Env(dict):
             #       working yet.
             return tokens[0]  # NOTE: this is always a list of a list!
 
-        def _if(tokens, executor, env):
+        def _if(tokens, executor, scope):
             '''
             Evaluate an if statement.
                 (if test then else) or (if test then)
@@ -136,18 +249,18 @@ class Env(dict):
             else:
                 msg = 'if expression requires 2 or 3 clauses: got {}'
                 raise SyntaxError(msg.format(len(tokens)))
-            exp = _true if executor.eval(test, env) else _false
-            return executor.eval(exp, env) if exp else None
+            exp = _true if executor.eval(test, scope) else _false
+            return executor.eval(exp, scope) if exp else None
 
-        def _define(tokens, executor, env):
+        def _define(tokens, executor, scope):
             '''
             Bind a name to an expression
                 (define name exp)
             '''
             name, expression = tokens
-            env[name] = executor.eval(expression, env)
+            scope[name] = executor.eval(expression, scope)
 
-        def _eval(tokens, executor, env):
+        def _eval(tokens, executor, scope):
             '''
             Evaluate a bound symbol or quoted s-expression
                 (eval sym) or (eval 'exp)
@@ -155,25 +268,25 @@ class Env(dict):
             tokens = tokens[0]
             if isinstance(tokens, list):
                 # tokens are [quote, [ ... ]]
-                val = executor.eval(tokens[1], env)
+                val = executor.eval(tokens[1], scope)
             else:
                 # single token is a symbol, try to look it up
                 try:
-                    _val = env.find(Symbol(tokens))[tokens]
+                    _val = scope.find(Symbol(tokens))[tokens]
                 except AttributeError:
                     raise NameError(
                         'undefined symbol {}'.format(tokens)
                         )
-                val = executor.eval(_val, env)
+                val = executor.eval(_val, scope)
             return val
 
-        def _lambda(tokens, executor, env):
+        def _lambda(tokens, executor, scope):
             '''
             Define a lambda funtion.
                 (lambda (var ... ) (body))
             '''
             args, body = tokens
-            return RiplFunc(args, body, env, executor)
+            return RiplFunc(args, body, scope, executor)
 
         syntax = zip('quote if define eval lambda'.split(),
                      [_quote, _if, _define, _eval, _lambda])
@@ -184,20 +297,16 @@ class RiplFunc:
     '''
     A user-defined function.
     NOTE: RiplFuncs are always declared using `lambda`.
+          The def{x} syntax is desugared in the lexer.
     '''
-    def __init__(self, args, body, env, executor):
+    def __init__(self, args, body, scope, executor):
         self.args = args
         self.body = body
-        self.env = env
+        self.scope = scope
         self.executor = executor
 
     def __call__(self, *arg_vals):
         res = self.executor.eval(
                 self.body,
-                Env(
-                    args=self.args,
-                    arg_vals=arg_vals,
-                    outer=self.env
-                    )
-                )
+                self.scope._inner_scope(args=self.args, arg_vals=arg_vals))
         return res

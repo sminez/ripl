@@ -2,14 +2,17 @@
 Common LISPy / Haskelly functions to use inside RIPL
 
 The aim of this is to enable crazyness like the following:
-def fiblist():
-   """generate an infinite list of fibonacci numbers beginning [1,2,3,5...]"""
-   yield 1
-   next_fibs = scanl(op.add, 2, fiblist())
-   while True:
-       yield from next_fibs
+    def fiblist():
+       """
+       Generate an infinite list of fibonacci numbers beginning [1,2,3,5...]
+       """
+       yield 1
+       next_fibs = scanl(op.add, 2, fiblist())
+       while True:
+           yield from next_fibs
 
-take(10, fiblist()) --> [1,2,3,5,8,13,21,34,55,89]
+    take(10, fiblist()) --> [1,2,3,5,8,13,21,34,55,89]
+    NOTE: This seems to bottom out at take(1976, fiblist()) on my machine...!
 
 
 Std Lib Functional stuff
@@ -64,8 +67,6 @@ def scanl(func, acc, cont):
             yield acc
         except TypeError:
             cont = iter(cont)
-        except StopIteration:
-            raise StopIteration
 
 
 def scanr(func, acc, itr):

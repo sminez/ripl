@@ -6,83 +6,90 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.clipboard.pyperclip import PyperclipClipboard
 
-from prompt_toolkit.layout.processors import ConditionalProcessor, \
-        HighlightMatchingBracketProcessor
 from prompt_toolkit.filters import IsDone
+from prompt_toolkit.layout.processors import \
+    ConditionalProcessor, HighlightMatchingBracketProcessor
 
+from collections import deque
 
-from .bases import Env, Symbol
-from .backend import Lexer, Parser
+from .backend import Reader
+from .bases import Scope, Symbol
 from .repl_utils import RiplLexer, ripl_style
 
 import ripl.prelude as prelude
 
 
-class RiplExecutor:
+class RiplEvaluator:
     '''
     Base class for the Ripl interpretor and Ripl transpiler.
         Not sure whether to call it a compiler or not as it
         should eventually be able to output .py and .pyc
     '''
     def __init__(self, use_prelude=True):
-        self.environment = Env(use_standard=True)
+        self.global_scope = Scope(use_standard=True)
         if use_prelude:
             funcs = {Symbol(k): v for k, v in vars(prelude).items()}
-            self.environment.update(funcs)
+            self.global_scope.update(funcs)
 
-        self.lexer = Lexer()
-        self.parser = Parser()
-        self.syntax = Env(init_syntax=True)
+        self.reader = Reader()
+        self.syntax = Scope(init_syntax=True)
 
     def py_to_lisp_str(self, exp):
         '''
         Convert a Python object back into a Lisp-readable string for display.
+        NOTE: Not referencing internal types here as we need interopt with
+              other Python code.
         '''
-        if isinstance(exp, list):
+        if isinstance(exp, deque):
             # (1 2 ... n)
             return '(' + ' '.join(map(self.py_to_lisp_str, exp)) + ')'
-        if isinstance(exp, dict):
+        elif isinstance(exp, list):
+            # [1 2 ... n]
+            return '[' + ' '.join(map(self.py_to_lisp_str, exp)) + ']'
+        elif isinstance(exp, dict):
             # {a 1, b 2, ... k v}
             tmp = ['{} {}'.format(k, v) for k, v in exp.items()]
             return '{' + ', '.join(tmp) + '}'
-        if isinstance(exp, tuple):
+        elif isinstance(exp, tuple):
             # (, 1 2 ... n)
             return '(,' + ' '.join(map(self.py_to_lisp_str, exp)) + ')'
         else:
             return str(exp)
 
-    def eval(self, tkns, env):
+    def eval(self, tkns, scope):
         '''
-        Try to evaluate an expression in an environment.
+        Try to evaluate an expression in a given scope.
         NOTE: Special language features and syntax found here.
         '''
         if not isinstance(tkns, list):
             # This is an atom: a symbol or a built-in type
+            # Check to see if we have it in the current scope.
             try:
-                # Check to see if we have this in the current environment.
-                # NOTE: env.find returns the environment containing tkns.
-                return env.find(Symbol(tkns))[tkns]
-            except AttributeError:
-                # This is not a known symbol
+                return scope[tkns]
+            except KeyError:
+                # We just tried to perform lookup on None:
+                # --> tkns is not a known symbol
                 if isinstance(tkns, Symbol):
                     raise NameError('symbol {} is not defined'.format(tkns))
                 else:
+                    # It's a value
                     return tkns
         elif tkns == []:
-            # got the emptylist
+            # Empty list
             return tkns
-        else:                             # (proc arg...)
+        else:
             call, *args = tkns
             try:
+                # See if this is a known piece of syntax
                 exp = self.syntax.find(Symbol(call))[call]
-                return exp(args, self, env)
+                return exp(args, self, scope)
             except AttributeError:
-                proc = self.eval(tkns[0], env)
-                args = [self.eval(exp, env) for exp in tkns[1:]]
+                proc = self.eval(tkns[0], scope)
+                args = [self.eval(exp, scope) for exp in tkns[1:]]
                 return proc(*args)
 
 
-class RiplRepl(RiplExecutor):
+class RiplRepl(RiplEvaluator):
     def __init__(self, debug=False):
         self.debug = debug
         super().__init__()
@@ -93,13 +100,13 @@ class RiplRepl(RiplExecutor):
 
     def eval_and_print(self, exp):
         '''
-        Attempt to evaluate an expresion in an execution environment.
+        Attempt to evaluate an expresion in an execution scope.
         Catches and displays output and exceptions.
         '''
         try:
-            raw_tokens = self.lexer.lex(exp)
-            parsed_tokens = next(self.parser.parse(raw_tokens))
-            val = self.eval(parsed_tokens, self.environment)
+            raw_tokens = self.reader.lex(exp)
+            parsed_tokens = next(self.reader.parse(raw_tokens))
+            val = self.eval(parsed_tokens, self.global_scope)
             if val is not None:
                 print('> ' + self.py_to_lisp_str(val) + '\n')
         except Exception as e:
@@ -118,8 +125,8 @@ class RiplRepl(RiplExecutor):
         def exit_message():
             print('\nThanks for giving RIPL a try!\nさようなら!\n')
 
-        if not self.environment:
-            raise EnvironmentError('Could not find execution environment')
+        if not self.global_scope:
+            raise EnvironmentError('Things have gone horribly wrong...')
 
         print('<{[( RIPL Is Pythonic LISP )]}>\n'
               '    Ctrl-Space to enter selection mode.\n'
