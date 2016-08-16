@@ -155,13 +155,13 @@ class Reader:
                 pass
             elif lex_tag.startswith('QUOTED'):
                 sub = '(quote ' + source_txt[1:] + ')'
-                yield self.reglex(sub)
+                yield self.lex(sub)
             elif lex_tag == 'QUASI_QUOTED':
                 sub = '(quasiquote ' + source_txt[1:] + ')'
-                yield self.reglex(sub)
+                yield self.lex(sub)
             elif lex_tag == 'CURRIED_SEXP':
                 sub = '(curry ' + source_txt[1:] + ')'
-                yield self.reglex(sub)
+                yield self.lex(sub)
             else:
                 # NOTE: We have something that we can convert to a value
                 if lex_tag == 'NULL':
