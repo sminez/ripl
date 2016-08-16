@@ -13,7 +13,7 @@ from prompt_toolkit.layout.processors import \
 from collections import deque
 
 from .backend import Reader
-from .bases import Scope, Symbol
+from .bases import Scope, Symbol, RList, EmptyList
 from .repl_utils import RiplLexer, ripl_style
 
 import ripl.prelude as prelude
@@ -61,7 +61,7 @@ class RiplEvaluator:
         Try to evaluate an expression in a given scope.
         NOTE: Special language features and syntax found here.
         '''
-        if not isinstance(tkns, list):
+        if not isinstance(tkns, RList):
             # This is an atom: a symbol or a built-in type
             # Check to see if we have it in the current scope.
             try:
@@ -74,18 +74,19 @@ class RiplEvaluator:
                 else:
                     # It's a value
                     return tkns
-        elif tkns == []:
+        elif tkns == EmptyList():
             # Empty list
-            return tkns
+            return EmptyList()
         else:
             call, *args = tkns
             try:
                 # See if this is a known piece of syntax
-                exp = self.syntax.find(Symbol(call))[call]
-                return exp(args, self, scope)
-            except AttributeError:
-                proc = self.eval(tkns[0], scope)
-                args = [self.eval(exp, scope) for exp in tkns[1:]]
+                builtin = self.syntax[call]
+                return builtin(args, self, scope)
+            except KeyError:
+                func, *arg_vals = tkns
+                proc = self.eval(func, scope)
+                args = [self.eval(exp, scope) for exp in arg_vals]
                 return proc(*args)
 
 

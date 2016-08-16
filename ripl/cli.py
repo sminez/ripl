@@ -41,7 +41,7 @@ def main(argv=None):
         print(__version__)
     elif args.script:
         repl = RiplRepl()
-        repl.eval_and_print(args.script, repl.environment)
+        repl.eval_and_print(args.script)
     else:
         # Spin up a repl with optional debug
         repl = RiplRepl(debug=args.debug)

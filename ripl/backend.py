@@ -5,7 +5,7 @@ conversion from sexp -> python usable code.
 import re
 from itertools import chain
 
-from .bases import Symbol, EmptyList, RList, RDict, RVector
+from .bases import Symbol, Keyword, EmptyList, RList, RDict, RVector, RString
 
 
 class Tag:
@@ -85,6 +85,8 @@ def make_atom(token):
     '''
     if token.tag == 'SYMBOL':
         return Symbol(token.val)
+    elif token.tag == 'KEYWORD':
+        return Keyword(token.val)
     else:
         return token.val
 
@@ -174,7 +176,7 @@ class Reader:
                     # above as a single regex is huge and an eyesore.
                     lex_tag = 'COMPLEX'
                 else:
-                    val = source_txt
+                    val = RString(source_txt)
                 column = match.start() - line_start
                 yield Token(lex_tag, val, line_num, column)
 
@@ -213,14 +215,12 @@ class Reader:
                         sexp.append(next(self.parse(tokens)))
                         token = next(tokens)
                     yield RList(sexp)
-            # TODO: Implement vectors vs linked lists
-            # De-sugar list literals
             elif token.tag == 'BRACKET_OPEN':
-                # start of a list literal, drop the initial bracket
-                list_literal, tokens = self._parse_list(tokens)
+                # start of a vector literal, drop the initial bracket
+                list_literal, tokens = self._parse_vector(tokens)
                 yield list_literal
-            # De-sugar dict literals
             elif token.tag == 'BRACE_OPEN':
+                # start of a dict literal, drop the initial brace
                 dict_literal, tokens = self._parse_dict(tokens)
                 yield dict_literal
 
@@ -232,10 +232,10 @@ class Reader:
             else:
                 yield make_atom(token)
 
-    def _parse_list(self, tokens):
+    def _parse_vector(self, tokens):
         ''' :: gen(Token) -> List[], gen(Tokens)
-        Parse a list literal all at once and return both the list and remaining
-        tokens from the input stream.
+        Parse a vector literal all at once and return both the list and
+        remaining tokens from the input stream.
             Note: This makes a list in memory and then passes it back to parse!
         '''
         tmp = []

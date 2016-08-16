@@ -21,7 +21,7 @@ def _ripl_add(*lst):
     return functools.reduce(op.add, lst)
 
 
-def pyimport(module, env, _as=None, _from=None):
+def pyimport(module, scope, _as=None, _from=None):
     '''
     Import a module and insert it into the given environment.
     --> This will perform inports with local scope.
@@ -46,8 +46,8 @@ def pyimport(module, env, _as=None, _from=None):
     else:
         defs = {Symbol('{}.{}'.format(module, k)): v for k, v in mod}
 
-    env.update(defs)
-    return env
+    scope.update(defs)
+    return scope
 
 
 def curry(func, *args):

@@ -21,9 +21,19 @@ class Capturing(list):
 
 class CLITest(unittest.TestCase):
     def test_cli(self):
+        '''Argparse isn't borked'''
         argv = '--version'
         with suppress(SystemExit), Capturing() as output:
             cli.main(argv)
 
         output = '\n'.join(l for l in output)
         self.assertEqual(output, cli.__version__)
+
+    def test_parse_cmdln_sexp(self):
+        '''The CLI can parse an s-expression'''
+        argv = '-s (print (+ "Yay! This" " all works!"))'
+        with suppress(SystemExit), Capturing() as output:
+            cli.main(argv)
+
+        output = '\n'.join(l for l in output)
+        self.assertEqual(output, "Yay! This all works!")

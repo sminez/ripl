@@ -46,10 +46,27 @@ class PyimportTest(TestCase):
         self.assertTrue(Symbol('math.sin') in updated_scope)
         self.assertTrue(Symbol('car') in updated_scope)
 
+    def test_import_as(self):
+        '''Importing foo as f works'''
+        updated_scope = pyimport('math', Scope(), _as='foo')
+        self.assertTrue(Symbol('foo.sin') in updated_scope)
+        self.assertFalse(Symbol('math.sin') in updated_scope)
+
+    def test_import_from(self):
+        '''From foo import bar works'''
+        updated_scope = pyimport('math', Scope(use_standard=True), _from='sin')
+        self.assertTrue(Symbol('sin') in updated_scope)
+        self.assertFalse(Symbol('math.sin') in updated_scope)
+
     def test_import_bad_module(self):
         '''Trying to import a non-existant module fails correctly'''
         with self.assertRaises(ImportError):
             pyimport('notamodule', Scope())
+
+    def test_import_from_as(self):
+        '''Trying to import from and as fails correctly'''
+        with self.assertRaises(SyntaxError):
+            pyimport('math', Scope(), _as='foo', _from='sin')
 
 
 class CurryTest(TestCase):

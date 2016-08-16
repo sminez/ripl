@@ -46,7 +46,9 @@ class Keyword:
 
     def _keyword_comp(self, other):
         '''Used for when we store something as a keyword internally'''
-        if isinstance(other, Symbol):
+        if isinstance(other, Keyword):
+            return self == other
+        elif isinstance(other, Symbol):
             return self.str == other.str
         else:
             return self.str == other
@@ -70,7 +72,10 @@ class EmptyList(RList):
             return True
         else:
             if isinstance(other, RList):
-                return self == other
+                if len(other) == 0:
+                    return True
+                else:
+                    return other is None
 
     def __call__(self, index):
         '''Collections are mappings to values'''
@@ -108,6 +113,29 @@ class RDict(dict):
     def __call__(self, key):
         '''Collections are mappings to values'''
         return self[key]
+
+
+class RString(str):
+    '''Make cons work and make sure str != Keyword/Symbol'''
+    def __init__(self, string):
+        self.str = string
+
+    def _cons(self, other):
+        return other + self
+
+    def __eq__(self, other):
+        if isinstance(other, Symbol) or isinstance(other, Keyword):
+            return False
+        else:
+            try:
+                # comp to RString
+                return self.str == other.str
+            except:
+                # comp to raw string
+                return self.str == other
+
+    def __hash__(self):
+        return hash(self.str)
 
 
 class Scope(collections.ChainMap):
@@ -223,11 +251,11 @@ class Scope(collections.ChainMap):
         Built-in language features for use in the evaluator.
         User defined macros will be stored in the same Scope as these.(?)
 
-        All macros will be passed a list of tokens, and executor that will
+        All macros will be passed a list of tokens, and evaluator that will
         handle eval and an scope to evaluate in.
         '''
         # NOTE: AttributeError will be caught and not passed up the call stack!
-        def _quote(tokens, executor, scope):
+        def _quote(tokens, evaluator, scope):
             '''
             Quote an atom or s-expression.
                 (quote exp)
@@ -236,7 +264,7 @@ class Scope(collections.ChainMap):
             #       working yet.
             return tokens[0]  # NOTE: this is always a list of a list!
 
-        def _if(tokens, executor, scope):
+        def _if(tokens, evaluator, scope):
             '''
             Evaluate an if statement.
                 (if test then else) or (if test then)
@@ -249,18 +277,18 @@ class Scope(collections.ChainMap):
             else:
                 msg = 'if expression requires 2 or 3 clauses: got {}'
                 raise SyntaxError(msg.format(len(tokens)))
-            exp = _true if executor.eval(test, scope) else _false
-            return executor.eval(exp, scope) if exp else None
+            exp = _true if evaluator.eval(test, scope) else _false
+            return evaluator.eval(exp, scope) if exp else None
 
-        def _define(tokens, executor, scope):
+        def _define(tokens, evaluator, scope):
             '''
             Bind a name to an expression
                 (define name exp)
             '''
             name, expression = tokens
-            scope[name] = executor.eval(expression, scope)
+            scope[name] = evaluator.eval(expression, scope)
 
-        def _eval(tokens, executor, scope):
+        def _eval(tokens, evaluator, scope):
             '''
             Evaluate a bound symbol or quoted s-expression
                 (eval sym) or (eval 'exp)
@@ -268,7 +296,7 @@ class Scope(collections.ChainMap):
             tokens = tokens[0]
             if isinstance(tokens, list):
                 # tokens are [quote, [ ... ]]
-                val = executor.eval(tokens[1], scope)
+                val = evaluator.eval(tokens[1], scope)
             else:
                 # single token is a symbol, try to look it up
                 try:
@@ -277,16 +305,16 @@ class Scope(collections.ChainMap):
                     raise NameError(
                         'undefined symbol {}'.format(tokens)
                         )
-                val = executor.eval(_val, scope)
+                val = evaluator.eval(_val, scope)
             return val
 
-        def _lambda(tokens, executor, scope):
+        def _lambda(tokens, evaluator, scope):
             '''
             Define a lambda funtion.
                 (lambda (var ... ) (body))
             '''
             args, body = tokens
-            return RiplFunc(args, body, scope, executor)
+            return RiplFunc(args, body, scope, evaluator)
 
         syntax = zip('quote if define eval lambda'.split(),
                      [_quote, _if, _define, _eval, _lambda])
@@ -299,14 +327,14 @@ class RiplFunc:
     NOTE: RiplFuncs are always declared using `lambda`.
           The def{x} syntax is desugared in the lexer.
     '''
-    def __init__(self, args, body, scope, executor):
+    def __init__(self, args, body, scope, evaluator):
         self.args = args
         self.body = body
         self.scope = scope
-        self.executor = executor
+        self.evaluator = evaluator
 
     def __call__(self, *arg_vals):
-        res = self.executor.eval(
+        res = self.evaluator.eval(
                 self.body,
                 self.scope._inner_scope(args=self.args, arg_vals=arg_vals))
         return res
