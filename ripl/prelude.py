@@ -19,10 +19,16 @@ Std Lib Functional stuff
 https://docs.python.org/3.4/library/itertools.html
 https://docs.python.org/3.4/library/functools.html
 https://docs.python.org/3.4/library/operator.html
+
+L.Y.A.H Higher order functions chapter
+http://learnyouahaskell.com/higher-order-functions
 '''
 import functools
 import itertools
 import operator as op
+from collections import Generator
+
+from .bases import RList
 
 
 def reverse(itr):
@@ -41,41 +47,67 @@ def product(cont):
 
 
 def foldl(func, acc, cont):
-    ''' :: f(a, a) -> a, Itr[a] -> a
+    ''' :: f(a, a) -> a, Itr|Gen[a] -> a
     Fold a list with a given binary function from the left
     '''
-    return functools.reduce(func, [c for c in cont], acc)
+    for val in cont:
+        acc = func(acc, val)
+    return acc
 
 
 def foldr(func, acc, cont):
     ''' :: f(a, a) -> a, Itr|Gen[a] -> a
     Fold a list with a given binary function from the right
+
+    WARNING: Right folds and scans will blow up for
+             infinite generators!
     '''
-    return functools.reduce(func, [c for c in cont][::-1], acc)
+    if isinstance(cont, Generator):
+        # Convert to iterator to pass to reduce
+        cont = [c for c in cont]
+
+    for val in cont[::-1]:
+        acc = func(val, acc)
+    return acc
 
 
 def scanl(func, acc, cont):
-    ''' :: f(a, a) -> a, Itr|Gen[a] -> Gen[a]
+    ''' :: f(a, a) -> a, Itr|Gen[a] -> List[a]
     Use a given accumulator value to build a list of values obtained
     by repeatedly applying acc = func(acc, next(list)) from the left.
     '''
-    yield acc
-    while True:
-        try:
-            c = next(cont)
-            acc = func(acc, c)
-            yield acc
-        except TypeError:
-            cont = iter(cont)
+    # yield acc
+    # for val in cont:
+    #     acc = func(acc, val)
+    #     yield acc
+    lst = [acc]
+    for val in cont:
+        acc = func(acc, val)
+        lst.append(acc)
+    return lst
 
 
-def scanr(func, acc, itr):
-    ''' :: f(a, a) -> a, Itr[a] -> [a]
+def scanr(func, acc, cont):
+    ''' :: f(a, a) -> a, Itr|Gen[a] -> List[a]
     Use a given accumulator value to build a list of values obtained
-    by repeatedly applying acc = func(acc, next(list)) from the left.
+    by repeatedly applying acc = func(next(list), acc) from the right.
+
+    WARNING: Right folds and scans will blow up for
+             infinite generators!
     '''
-    list_with_acc = [acc] + itr[::-1]
-    return itertools.accumulate(list_with_acc, func)
+    if isinstance(cont, Generator):
+        # Convert to iterator to pass to reduce
+        cont = [c for c in cont]
+
+    # yield acc
+    # for val in cont:
+    #     acc = func(val, acc)
+    #     yield acc
+    lst = [acc]
+    for val in cont[::-1]:
+        acc = func(val, acc)
+        lst.append(acc)
+    return lst
 
 
 def take(num, cont):
@@ -137,4 +169,4 @@ def drain(gen):
     ''' :: Gen[*T] -> List[*T]
     Given a generator, convert it to a list.
     '''
-    return [elem for elem in gen]
+    return RList([elem for elem in gen])
