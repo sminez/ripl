@@ -1,20 +1,6 @@
 '''
 Common LISPy / Haskelly functions to use inside RIPL
 
-The aim of this is to enable crazyness like the following:
-    def fiblist():
-       """
-       Generate an infinite list of fibonacci numbers beginning [1,2,3,5...]
-       """
-       yield 1
-       next_fibs = scanl(op.add, 2, fiblist())
-       while True:
-           yield from next_fibs
-
-    take(10, fiblist()) --> [1,2,3,5,8,13,21,34,55,89]
-    NOTE: This seems to bottom out at take(1976, fiblist()) on my machine...!
-
-
 Std Lib Functional stuff:
 https://docs.python.org/3.4/library/itertools.html
 https://docs.python.org/3.4/library/functools.html
@@ -41,6 +27,8 @@ def reverse(itr):
     Reverse an iterable
     '''
     return itr[::-1]
+
+# gen_reverse = lambda x: reversed(x)
 
 
 def product(cont):
@@ -124,9 +112,12 @@ def take(num, cont):
     except TypeError:
         # Taking from a generator
         num_items = []
-        for n in range(num):
-            num_items.append(next(cont))
-        return num_items
+        try:
+            for n in range(num):
+                num_items.append(next(cont))
+            return num_items
+        except StopIteration:
+            return num_items
 
 
 def drop(num, cont):
@@ -146,20 +137,20 @@ def drop(num, cont):
     return items
 
 
-def dropWhile(predicate, container):
-    ''' :: Int, Itr|Gen[*T] -> Gen[*T]
-    The predicate needs to take a single argument and return a bool.
-    (dropWhile ~(< 3) '(1 2 3 4 5)) -> '(3 4 5)
-    '''
-    return itertools.dropwhile(predicate, container)
-
-
 def takeWhile(predicate, container):
     ''' :: Int, Itr|Gen[*T] -> Gen[*T]
     The predicate needs to take a single argument and return a bool.
     (takeWhile ~(< 3) '(1 2 3 4 5)) -> '(1 2)
     '''
     return itertools.takewhile(predicate, container)
+
+
+def dropWhile(predicate, container):
+    ''' :: Int, Itr|Gen[*T] -> Gen[*T]
+    The predicate needs to take a single argument and return a bool.
+    (dropWhile ~(< 3) '(1 2 3 4 5)) -> '(3 4 5)
+    '''
+    return itertools.dropwhile(predicate, container)
 
 
 def flatten(lst):

@@ -53,16 +53,48 @@ class PythonPreludeTest(TestCase):
                 ['', 'd', 'rd', 'ord', 'word'])
 
     def test_take(self):
-        pass
+        self.assertEqual(pr.take(3, [1, 2, 3, 4, 5, 6]), [1, 2, 3])
+        self.assertEqual(pr.take(3, [1, 2]), [1, 2])
+        self.assertEqual(
+                pr.take(3, (n for n in[1, 2, 3, 4, 5, 6])),
+                [1, 2, 3])
+        self.assertEqual(
+                pr.take(3, (n for n in [1, 2])),
+                [1, 2])
+        self.assertEqual(pr.take(3, []), [])
 
     def test_drop(self):
-        pass
+        self.assertEqual(pr.take(3, [1, 2, 3, 4, 5, 6]), [1, 2, 3])
+        self.assertEqual(pr.take(3, [1, 2]), [1, 2])
+        self.assertEqual(
+                pr.take(3, (n for n in[1, 2, 3, 4, 5, 6])),
+                [1, 2, 3])
+        self.assertEqual(
+                pr.take(3, (n for n in [1, 2])),
+                [1, 2])
+        self.assertEqual(pr.take(3, []), [])
 
     def test_takeWhile(self):
-        pass
+        self.assertEqual(pr.take(3, [1, 2, 3, 4, 5, 6]), [1, 2, 3])
+        self.assertEqual(pr.take(3, [1, 2]), [1, 2])
+        self.assertEqual(
+                pr.take(3, (n for n in[1, 2, 3, 4, 5, 6])),
+                [1, 2, 3])
+        self.assertEqual(
+                pr.take(3, (n for n in [1, 2])),
+                [1, 2])
+        self.assertEqual(pr.take(3, []), [])
 
     def test_dropWhile(self):
-        pass
+        self.assertEqual(pr.take(3, [1, 2, 3, 4, 5, 6]), [1, 2, 3])
+        self.assertEqual(pr.take(3, [1, 2]), [1, 2])
+        self.assertEqual(
+                pr.take(3, (n for n in[1, 2, 3, 4, 5, 6])),
+                [1, 2, 3])
+        self.assertEqual(
+                pr.take(3, (n for n in [1, 2])),
+                [1, 2])
+        self.assertEqual(pr.take(3, []), [])
 
     def test_flatten(self):
         pass
