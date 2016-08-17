@@ -6,7 +6,7 @@ python:
   - "3.5"
 
 install:
-  - python3 setup.py install
+  - python setup.py install
   - pip install coveralls[yaml]
 
 script:
