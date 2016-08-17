@@ -2,7 +2,6 @@ import sys
 import unittest
 
 from io import StringIO
-from contextlib import suppress
 
 import ripl.cli as cli
 
@@ -23,7 +22,7 @@ class CLITest(unittest.TestCase):
     def test_cli(self):
         '''Argparse isn't borked'''
         argv = '--version'
-        with suppress(SystemExit), Capturing() as output:
+        with Capturing() as output:
             cli.main(argv)
 
         output = '\n'.join(l for l in output)
@@ -32,7 +31,7 @@ class CLITest(unittest.TestCase):
     def test_parse_cmdln_sexp(self):
         '''The CLI can parse an s-expression'''
         argv = '-s (print (+ "Yay! This" " all works!"))'
-        with suppress(SystemExit), Capturing() as output:
+        with Capturing() as output:
             cli.main(argv)
 
         output = '\n'.join(l for l in output)

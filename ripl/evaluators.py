@@ -80,7 +80,7 @@ class RiplEvaluator:
                     # See if this is a known piece of syntax
                     builtin = self.syntax[call]
                     return builtin(args, self, scope)
-                except KeyError:
+                except (KeyError, TypeError):
                     func, *arg_vals = tkns
                     proc = self.eval(func, scope)
                     args = [self.eval(exp, scope) for exp in arg_vals]
