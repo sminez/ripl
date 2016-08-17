@@ -31,7 +31,7 @@ https://clojuredocs.org/quickref
 import functools
 import itertools
 import operator as op
-from collections import Generator
+from types import GeneratorType
 
 from .bases import RList
 
@@ -67,7 +67,7 @@ def foldr(func, acc, cont):
     WARNING: Right folds and scans will blow up for
              infinite generators!
     '''
-    if isinstance(cont, Generator):
+    if isinstance(cont, GeneratorType):
         # Convert to iterator to pass to reduce
         cont = [c for c in cont]
 
@@ -100,7 +100,7 @@ def scanr(func, acc, cont):
     WARNING: Right folds and scans will blow up for
              infinite generators!
     '''
-    if isinstance(cont, Generator):
+    if isinstance(cont, GeneratorType):
         # Convert to iterator to pass to reduce
         cont = [c for c in cont]
 
