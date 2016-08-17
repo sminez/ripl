@@ -60,3 +60,39 @@ class EvaluatorTest(TestCase):
         result = self._eval(string)
         self.assertEqual(result, None)
         self.assertEqual(result, RList())
+
+    def test_quoting_sexp(self):
+        '''Quoting s-expressions works'''
+        string = "'(1 2 3)"
+        result = self._eval(string)
+        self.assertEqual(result, RList([1, 2, 3]))
+
+    def test_quoting_atom(self):
+        '''Quoting atoms works'''
+        string = "'a"
+        result = self._eval(string)
+        self.assertEqual(result, Symbol('a'))
+
+    def test_eval_vector(self):
+        '''The ([1 2 3] 0) -> 1 syntax works'''
+        string = '([1 2 3] 0)'
+        result = self._eval(string)
+        self.assertEqual(result, 1)
+
+    def test_eval_list(self):
+        '''The ((1 2 3) 0) -> 1 syntax works'''
+        string = '((1 2 3) 1)'
+        result = self._eval(string)
+        self.assertEqual(result, 2)
+
+    def test_eval_quoted_list(self):
+        '''('(1 2 3) 0) raises a SyntaxError'''
+        with self.assertRaises(SyntaxError):
+            string = "('(1 2 3) 1)"
+            self._eval(string)
+
+    def test_eval_dict(self):
+        '''The ({1 2, 3 4} 0) -> 1 syntax works'''
+        string = '({1 2, 3 4} 3)'
+        result = self._eval(string)
+        self.assertEqual(result, 4)

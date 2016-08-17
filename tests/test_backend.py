@@ -98,7 +98,7 @@ class ParserTest(TestCase):
         string = '["this" "is" "a" "vector" "of" "strings"]'
         tokens = self.reader.lex(string)
         parsed = next(self.reader.parse(tokens))
-        expected = ['quote', ['this', 'is', 'a', 'vector', 'of', 'strings']]
+        expected = ['this', 'is', 'a', 'vector', 'of', 'strings']
         self.assertEquals(parsed, expected)
 
     def test_parse_unclosed_vector(self):

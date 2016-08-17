@@ -155,13 +155,16 @@ class Reader:
                 pass
             elif lex_tag.startswith('QUOTED'):
                 sub = '(quote ' + source_txt[1:] + ')'
-                yield self.lex(sub)
+                for token in self.lex(sub):
+                    yield token
             elif lex_tag == 'QUASI_QUOTED':
                 sub = '(quasiquote ' + source_txt[1:] + ')'
-                yield self.lex(sub)
+                for token in self.lex(sub):
+                    yield token
             elif lex_tag == 'CURRIED_SEXP':
                 sub = '(curry ' + source_txt[1:] + ')'
-                yield self.lex(sub)
+                for token in self.lex(sub):
+                    yield token
             else:
                 # NOTE: We have something that we can convert to a value
                 if lex_tag == 'NULL':
@@ -199,7 +202,6 @@ class Reader:
         ################################################
         # Something like:
         # token, tokens = self.apply_macros(token, tokens)
-
         for token in tokens:
             if token.tag == 'PAREN_OPEN':
                 # Start of an s-expression, drop the intial paren
@@ -246,7 +248,7 @@ class Reader:
                 token = next(tokens)
             # Drop the final bracket
             parsed = RVector([v for v in self.parse(tmp)])
-            return ['quote', parsed], tokens
+            return parsed, tokens
         except StopIteration:
             # If we hit here then there was an error in the input.
             raise SyntaxError('missing closing ] in list literal.')

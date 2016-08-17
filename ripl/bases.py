@@ -61,10 +61,6 @@ class RList(collections.deque):
         for elem in other[::-1]:
             self.extendleft(elem)
 
-    def __call__(self, index):
-        '''Collections are mappings to values'''
-        return self[index]
-
 
 class EmptyList(RList):
     def __eq__(self, other):
@@ -76,13 +72,6 @@ class EmptyList(RList):
                     return True
                 else:
                     return other is None
-
-    def __call__(self, index):
-        '''Collections are mappings to values'''
-        if index == 0:
-            return self
-        else:
-            raise IndexError
 
     def __add__(self, other):
         # Don't want to pass on the `self == None` behaviour
@@ -109,10 +98,6 @@ class RDict(dict):
         else:
             pairs = [other[i:i+2] for i in range(0, len(other), 2)]
             self.update({k: v for k, v in pairs})
-
-    def __call__(self, key):
-        '''Collections are mappings to values'''
-        return self[key]
 
 
 class RString(str):
@@ -258,11 +243,12 @@ class Scope(collections.ChainMap):
         def _quote(tokens, evaluator, scope):
             '''
             Quote an atom or s-expression.
-                (quote exp)
+                (quote exp) or '(exp)
             '''
-            # NOTE: This kind of works...but I haven't got unquoting
-            #       working yet.
-            return tokens[0]  # NOTE: this is always a list of a list!
+            # NOTE: Only atoms and s-expressions can be quoted. Other
+            #       collections act as quoted atoms by default as calling
+            #       them is a Collection -> value call.
+            return tokens[0]
 
         def _if(tokens, evaluator, scope):
             '''

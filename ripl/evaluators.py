@@ -10,10 +10,10 @@ from prompt_toolkit.filters import IsDone
 from prompt_toolkit.layout.processors import \
     ConditionalProcessor, HighlightMatchingBracketProcessor
 
-from collections import deque
+from collections import deque, Container
 
 from .backend import Reader
-from .bases import Scope, Symbol, RList, EmptyList
+from .bases import Scope, Symbol, EmptyList, RList
 from .repl_utils import RiplLexer, ripl_style
 
 import ripl.prelude as prelude
@@ -61,7 +61,31 @@ class RiplEvaluator:
         Try to evaluate an expression in a given scope.
         NOTE: Special language features and syntax found here.
         '''
-        if not isinstance(tkns, RList):
+        if isinstance(tkns, RList):
+            # Internal representation of an s-expression
+            if tkns == EmptyList():
+                return EmptyList()
+            elif isinstance(tkns[0], Container):
+                if len(tkns) == 2:
+                    # Containers are functions of Key/Index -> value so
+                    # we allow calling them as syntax for `get`
+                    # (<CONTAINER> KEY/INDEX) -> VALUE
+                    return tkns[0].__getitem__(tkns[1])
+                else:
+                    raise SyntaxError('Invalid function call')
+            else:
+                # This is a function call
+                call, *args = tkns
+                try:
+                    # See if this is a known piece of syntax
+                    builtin = self.syntax[call]
+                    return builtin(args, self, scope)
+                except KeyError:
+                    func, *arg_vals = tkns
+                    proc = self.eval(func, scope)
+                    args = [self.eval(exp, scope) for exp in arg_vals]
+                    return proc(*args)
+        else:
             # This is an atom: a symbol or a built-in type
             # Check to see if we have it in the current scope.
             try:
@@ -74,20 +98,6 @@ class RiplEvaluator:
                 else:
                     # It's a value
                     return tkns
-        elif tkns == EmptyList():
-            # Empty list
-            return EmptyList()
-        else:
-            call, *args = tkns
-            try:
-                # See if this is a known piece of syntax
-                builtin = self.syntax[call]
-                return builtin(args, self, scope)
-            except KeyError:
-                func, *arg_vals = tkns
-                proc = self.eval(func, scope)
-                args = [self.eval(exp, scope) for exp in arg_vals]
-                return proc(*args)
 
 
 class RiplRepl(RiplEvaluator):
