@@ -1,10 +1,16 @@
 language: python
 
 python:
+  - "2.7"
+  - "3.4"
   - "3.5"
 
 install:
   - python3 setup.py install
+  - pip install coveralls[yaml]
 
 script:
   - python3 testrunner.py --with-coverage --cover-package=ripl
+
+after_success:
+  - coveralls
