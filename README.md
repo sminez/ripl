@@ -24,6 +24,14 @@ After running `setup.py install`:
 - `ripl my_awsome_file.rpl` will evaluate and run a file (coming soon...)
 
 
+RIPL will only run on Python3 as it makes use of many Python3 only features.
+If you don't currently have Python3, you _can_ install it alongside an existing
+Python2 installation.
+
+Go on.
+
+You know you want to...
+
 ## A note on Hy
 Before you look at this and shout:<br>
 `"Hey! Have you heard of Hy? There's already a LISP that runs on Python!"`<br>
