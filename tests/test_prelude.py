@@ -2,6 +2,7 @@ import operator as op
 from unittest import TestCase
 
 import ripl.prelude as pr
+from ripl.bases import RList
 
 
 class PythonPreludeTest(TestCase):
@@ -97,7 +98,11 @@ class PythonPreludeTest(TestCase):
         self.assertEqual(pr.take(3, []), [])
 
     def test_flatten(self):
-        pass
+        self.assertEqual(
+                pr.flatten([[0], 1, [[2, 3], 4, [5, 6, [7]]], [8]]),
+                [0, 1, 2, 3, 4, 5, 6, 7, 8])
 
     def test_drain(self):
-        pass
+        self.assertEqual(
+                pr.drain((n for n in [1, 2, 3, 4])),
+                RList([1, 2, 3, 4]))

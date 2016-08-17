@@ -58,8 +58,12 @@ class RList(collections.deque):
     '''Attempt at a LISP style linked list'''
     def _cons(self, other):
         # Need to reverse otherwise (cons '(1 2) `(3 4)) -> (2 1 3 4)
-        for elem in other[::-1]:
-            self.extendleft(elem)
+        try:
+            self.extendleft(iter(other))
+            return self
+        except:
+            self.extendleft([other])
+            return self
 
 
 class EmptyList(RList):
@@ -82,7 +86,7 @@ class RVector(list):
     '''Python lists are really vectors so rename them and make cons work'''
     def _cons(self, other):
         '''cons should always extend on the left'''
-        return other + self
+        return RVector([other]) + self
 
     def __call__(self, index):
         '''Collections are mappings to values'''
@@ -98,6 +102,7 @@ class RDict(dict):
         else:
             pairs = [other[i:i+2] for i in range(0, len(other), 2)]
             self.update({k: v for k, v in pairs})
+        return self
 
 
 class RString(str):
@@ -204,11 +209,12 @@ class Scope(collections.ChainMap):
             }
 
         type_cons = {
-            Symbol('str'): lambda x: str(x),
+            Symbol('str'): lambda x: RString(x),
             Symbol('int'): lambda x: int(x),
             Symbol('float'): lambda x: float(x),
-            Symbol('dict'): lambda *x: dict(x),
-            Symbol('list'): lambda *x: list(x),
+            Symbol('dict'): lambda *x: RDict(x),
+            Symbol('list'): lambda *x: RList(x),
+            Symbol('vector'): lambda *x: list(x),
             Symbol('tuple'): lambda *x: tuple(x),
             Symbol(','): lambda *x: tuple(x)
             }

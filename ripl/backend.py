@@ -32,7 +32,6 @@ class Token:
                     self.line == other.line, self.col == other.col))
 
 
-# TODO: Add pattern for complex numbers when we start supporting them
 # NOTE: The SYMBOL tag is mad: "match anything not containing [stuff]
 #       so long as it ends with [stuff].
 RIPL_TAGS = [

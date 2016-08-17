@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from ripl.evaluators import RiplEvaluator
 from ripl.bases import Scope, Keyword, Symbol
+from ripl.bases import RList, RVector, RDict, RString, EmptyList
 
 
 class ScopeTest(TestCase):
@@ -42,6 +43,32 @@ class TypeTest(TestCase):
         self.assertTrue(foo._keyword_comp(Keyword('foo')))
         self.assertTrue(foo._keyword_comp(Symbol('foo')))
         self.assertTrue(foo._keyword_comp('foo'))
+
+    def test_RList(self):
+        '''Ripl's list cons works'''
+        self.assertEqual(
+                RList([1, 2, 3])._cons(0),
+                RList([0, 1, 2, 3]))
+        new_list = RList([])._cons(0)
+        self.assertFalse(isinstance(new_list, EmptyList))
+
+    def test_RVector(self):
+        '''Ripl's vector works'''
+        self.assertEqual(
+                RVector([1, 2, 3])._cons(0),
+                RVector([0, 1, 2, 3]))
+
+    def test_RDict(self):
+        '''Ripl's dict works'''
+        self.assertEqual(
+                RDict({1: 2, 3: 4})._cons([5, 6]),
+                RDict({1: 2, 3: 4, 5: 6}))
+
+    def test_RString(self):
+        '''Ripl's string works'''
+        self.assertEqual(
+                RString("<- this got cons-ed!")._cons("foo "),
+                RString("foo <- this got cons-ed!"))
 
 
 class BuiltInTest(TestCase):

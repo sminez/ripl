@@ -163,6 +163,6 @@ def flatten(lst):
 
 def drain(gen):
     ''' :: Gen[*T] -> List[*T]
-    Given a generator, convert it to a list.
+    Given a generator, convert it to a list (RVector)
     '''
     return RList([elem for elem in gen])
