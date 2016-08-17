@@ -15,13 +15,18 @@ The aim of this is to enable crazyness like the following:
     NOTE: This seems to bottom out at take(1976, fiblist()) on my machine...!
 
 
-Std Lib Functional stuff
+Std Lib Functional stuff:
 https://docs.python.org/3.4/library/itertools.html
 https://docs.python.org/3.4/library/functools.html
 https://docs.python.org/3.4/library/operator.html
 
-L.Y.A.H Higher order functions chapter
+Some info on what haskell does:
+https://wiki.haskell.org/Fold
 http://learnyouahaskell.com/higher-order-functions
+
+Clojure's core reference:
+https://clojuredocs.org/clojure.core
+https://clojuredocs.org/quickref
 '''
 import functools
 import itertools
