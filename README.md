@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/sminez/ripl.svg?branch=master)](https://travis-ci.org/sminez/ripl)
-[![Coverage Status](https://coveralls.io/repos/github/sminez/ripl/badge.svg)](https://coveralls.io/github/sminez/ripl)
+[![Coverage Status](https://coveralls.io/repos/github/sminez/ripl/badge.svg?branch=master)](https://coveralls.io/github/sminez/ripl?branch=master)
 
 # RIPL - {RIPL Is Pythonic LISP}
 
