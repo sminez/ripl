@@ -13,8 +13,9 @@ from prompt_toolkit.layout.processors import \
 from collections import deque, Container
 
 from .backend import Reader
-from .bases import Scope, Symbol, EmptyList, RList
+from .bases import Symbol, EmptyList, RList
 from .repl_utils import RiplLexer, ripl_style
+from .bases import get_global_scope, get_syntax
 
 import ripl.prelude as prelude
 
@@ -26,13 +27,13 @@ class RiplEvaluator:
         should eventually be able to output .py and .pyc
     '''
     def __init__(self, use_prelude=True):
-        self.global_scope = Scope(use_standard=True)
+        self.global_scope = get_global_scope()
         if use_prelude:
             funcs = {Symbol(k): v for k, v in vars(prelude).items()}
             self.global_scope.update(funcs)
 
         self.reader = Reader()
-        self.syntax = Scope(init_syntax=True)
+        self.syntax = get_syntax()
 
     def py_to_lisp_str(self, exp):
         '''
