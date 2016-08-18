@@ -169,10 +169,11 @@ class Scope(collections.ChainMap):
                 inner_scope.update(arg_vals)
             else:
                 # This should be the equivalent of *args
-                inner_scope.update({Symbol(args): [a for a in arg_vals]})
+                inner_scope.update({args[0]: [val for val in arg_vals]})
         else:
-            inner_scope.update(zip([Symbol(p) for p in args], arg_vals))
+            inner_scope.update(zip([arg for arg in args], arg_vals))
 
+        print('outer contains {} items\ninner is: {}'.format(len(self), inner_scope))
         return inner_scope
 
     def init_standard_scope(self):
@@ -292,7 +293,7 @@ class Scope(collections.ChainMap):
             else:
                 # single token is a symbol, try to look it up
                 try:
-                    _val = scope.find(Symbol(tokens))[tokens]
+                    _val = scope[tokens]
                 except AttributeError:
                     raise NameError(
                         'undefined symbol {}'.format(tokens)
