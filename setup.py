@@ -6,7 +6,7 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setup(
     name='ripl',
-    version="0.1.1",
+    version="0.1.2",
     description="A LISP that runs on the python VM",
     url="https://github.com/sminez/ripl",
     author="Innes Anderson-Morrison",
