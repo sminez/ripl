@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from ripl.bases import Scope, Symbol
+from ripl.bases import Scope, Symbol, get_global_scope
 from ripl.utils import _ripl_add, curry, pyimport
 
 
@@ -42,7 +42,7 @@ class PyimportTest(TestCase):
 
     def test_import_std_scope(self):
         '''Importing to the standard Scope works and doesn't clobber'''
-        updated_scope = pyimport('math', Scope(use_standard=True))
+        updated_scope = pyimport('math', get_global_scope())
         self.assertTrue(Symbol('math.sin') in updated_scope)
         self.assertTrue(Symbol('car') in updated_scope)
 
@@ -54,7 +54,7 @@ class PyimportTest(TestCase):
 
     def test_import_from(self):
         '''From foo import bar works'''
-        updated_scope = pyimport('math', Scope(use_standard=True), _from='sin')
+        updated_scope = pyimport('math', get_global_scope(), _from='sin')
         self.assertTrue(Symbol('sin') in updated_scope)
         self.assertFalse(Symbol('math.sin') in updated_scope)
 

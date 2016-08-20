@@ -1,11 +1,11 @@
 from unittest import TestCase
 
 from ripl.bases import RList, Symbol
-from ripl.evaluators import RiplEvaluator
+from ripl.evaluators import Evaluator
 
 
 class EvaluatorTest(TestCase):
-    evaluator = RiplEvaluator()
+    evaluator = Evaluator()
 
     def _eval(self, string):
         '''Helper for evals'''

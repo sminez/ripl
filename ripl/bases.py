@@ -128,189 +128,263 @@ class RString(str):
         return hash(self.str)
 
 
-class Scope(collections.ChainMap):
+# See: https://docs.python.org/3.5/library/collections.html
+# RIPL functions are closures, implemented as a reference to the
+# current Scope when they are defined.
+#     NOTE: Scopes - like all other things in RIPL - are first class
+#           values that can be passed and manipulated.
+#       --> Alterations to an outer Scope do not leave the execution
+#           of the function making the change.
+Scope = collections.ChainMap
+
+
+def nested_scope(current_scope, args=[], vals=[]):
     '''
-    See: https://docs.python.org/3.5/library/collections.html
+    Wrapper for the ChainMap.new_child() method that allows
+    for *args and **kwargs like behaviour:
 
-    A dict of {Symbol('var'): val} pairs, with a single outer Scope
-    enclosing it unless it is the GLOBAL Scope.
-        These are used to store and looking up the current scope of an
-        operation.
+    Note: this is not currently using the **{dict} syntax
+          to splat the dict... :(
 
-    RIPL functions are closures, implemented as a reference to the
-    current Scope when they are defined.
-        NOTE: Scopes - like all other things in RIPL - are first class
-              values that can be passed and manipulated.
-          --> Alterations to an outer Scope do not leave the execution
-              of the function making the change.
+    nested_scope(scope, 'a', 1)
+    >> ChainMap({'a': 1}, {<scope>})
+    nested_scope(scope, '*args', [1, 2, 3])
+    >> ChainMap({'args': [1, 2, 3]}, {<scope>})
+    nested_scope(scope, '**kwargs', {'a': 1, 'b': 2})
+    >> ChainMap({'a': 1, 'b': 2}, {<scope>})
+    nested_scope(scope, ('a', 'b'), [1, 2])
+    >> ChainMap({'a': 1, 'b': 2}, {<scope>})
     '''
-    def __init__(self, args=[], arg_vals=[],
-                 use_standard=False, init_syntax=False):
-        super().__init__()
-        # Bind function arguments to the local scope
-        self.update(zip([Symbol(p) for p in args], arg_vals))
-        if use_standard:
-            self.init_standard_scope()
-            self.CONTAINS_SYNTAX = False
-        elif init_syntax:
-            self.init_syntax()
-            # Using as a flag to avoid importing regular modules
-            self.CONTAINS_SYNTAX = True
-
-    def _inner_scope(self, args=[], arg_vals=[]):
-        '''
-        Build a new scope that is the child of this one.
-        Optionally bind in new paramaters
-        '''
-        inner_scope = self.new_child()
-        if len(args) == 1:
-            if isinstance(arg_vals, dict):
-                # Should be equivalent to **kwargs
-                inner_scope.update(arg_vals)
+    # TODO: Find a way of lexing kwargs to return a dict
+    #       i.e. (foo (a=1 b=2)) -> (foo {a: 1, b: 2})
+    if len(args) == 1:
+        arg = args[0]
+        # Check to see if we have *args or **kwargs
+        if arg.str.startswith('**'):
+            # try to extract kwargs and splat them in
+            if isinstance(vals, dict):
+                new_defs = vals
             else:
-                # This should be the equivalent of *args
-                inner_scope.update({Symbol(args): [a for a in arg_vals]})
+                # This isn't exactly the same as Pythons **kwargs
+                # TODO: match python style
+                raise SyntaxError('**kwargs must be a dict')
+        elif arg.str.startswith('*'):
+            # try to splat in the values provided
+            if len(vals) > 1:
+                vals = tuple(vals)
+            else:
+                vals = vals[0]
+            new_defs = {Symbol(arg.str.lstrip('*')): vals}
         else:
-            inner_scope.update(zip([Symbol(p) for p in args], arg_vals))
+            # This should be a single arg and val
+            if len(vals) != 1:
+                raise SyntaxError(
+                    'expected 1 positional argument, got {}'.format(len(vals)))
+            new_defs = {arg: vals[0]}
+    else:
+        if len(args) > len(vals):
+            raise SyntaxError('missing positional arguments')
+        if len(args) < len(vals):
+            raise SyntaxError('too many positional arguments')
+        else:
+            new_defs = {var: val for var, val in zip(args, vals)}
 
-        return inner_scope
+    return current_scope.new_child(new_defs)
 
-    def init_standard_scope(self):
-        '''
-        A scope with some standard procedures to get started.
-        '''
-        py_builtins = {Symbol(k): v for k, v in __builtins__.items()}
-        self.update(py_builtins)
 
-        std_ops = {
-            Symbol('+'): lambda *x: functools.reduce(op.add, x),
-            Symbol('-'): op.sub,
-            Symbol('*'): op.mul,
-            Symbol('/'): op.truediv,
-            Symbol('%'): op.mod,
-            Symbol('>'): op.gt,
-            Symbol('<'): op.lt,
-            Symbol('>='): op.ge,
-            Symbol('<='): op.le,
-            Symbol('=='): op.eq,
-            Symbol('!='): op.ne
-            }
+def get_global_scope():
+    '''
+    Build a scope with some standard procedures to get started.
+    '''
+    py_builtins = {Symbol(k): v for k, v in __builtins__.items()}
 
-        key_words = {
-            Symbol('append'): op.add,
-            Symbol('apply'): lambda x, xs: self[x](xs),  # need find?
-            Symbol('begin'): lambda *x: x[-1],
-            Symbol('car'): lambda x: x[0],
-            Symbol('cdr'): lambda x: x[1:],
-            Symbol('cons'): lambda x, y: y._cons(x),     # LISPy
-            Symbol(':'): lambda x, y: y._cons(x),        # Haskelly
-            Symbol('not'): op.not_,
-            Symbol('length'): len
-            }
-
-        type_cons = {
-            Symbol('str'): lambda x: RString(x),
-            Symbol('int'): lambda x: int(x),
-            Symbol('float'): lambda x: float(x),
-            Symbol('dict'): lambda *x: RDict(x),
-            Symbol('list'): lambda *x: RList(x),
-            Symbol('vector'): lambda *x: list(x),
-            Symbol('tuple'): lambda *x: tuple(x),
-            Symbol(','): lambda *x: tuple(x)
-            }
-
-        bool_tests = {
-            Symbol('eq?'): op.is_,
-            Symbol('equal?'): op.eq,
-            Symbol('callable?'): callable,
-            Symbol('null?'): lambda x: x == [],
-            Symbol('string?'): lambda x: isinstance(x, str),
-            Symbol('symbol?'): lambda x: isinstance(x, Symbol),
-            Symbol('dict?'): lambda x: isinstance(x, dict),
-            Symbol('tuple?'): lambda x: isinstance(x, tuple),
-            Symbol('list?'): lambda x: isinstance(x, list),
-            Symbol('int?'): lambda x: isinstance(x, int),
-            Symbol('float?'): lambda x: isinstance(x, float),
-            Symbol('number?'): lambda x: type(x) in [int, float, complex],
+    std_ops = {
+        Symbol('+'): lambda *x: functools.reduce(op.add, x),
+        Symbol('-'): op.sub,
+        Symbol('*'): op.mul,
+        Symbol('/'): op.truediv,
+        Symbol('%'): op.mod,
+        Symbol('>'): op.gt,
+        Symbol('<'): op.lt,
+        Symbol('>='): op.ge,
+        Symbol('<='): op.le,
+        Symbol('=='): op.eq,
+        Symbol('!='): op.ne
         }
 
-        for defs in [std_ops, key_words, type_cons, bool_tests]:
-            self.update(defs)
+    key_words = {
+        Symbol('append'): op.add,
+        Symbol('apply'): lambda x, xs: scope[x](xs),  # need find?
+        Symbol('begin'): lambda *x: x[-1],
+        Symbol('car'): lambda x: x[0],
+        Symbol('cdr'): lambda x: x[1:],
+        Symbol('cons'): lambda x, y: y._cons(x),     # LISPy
+        Symbol(':'): lambda x, y: y._cons(x),        # Haskelly
+        Symbol('not'): op.not_,
+        Symbol('len'): len
+        }
 
-    def init_syntax(self):
+    type_cons = {
+        Symbol('str'): lambda x: RString(x),
+        Symbol('int'): lambda x: int(x),
+        Symbol('float'): lambda x: float(x),
+        Symbol('dict'): lambda *x: RDict(x),
+        Symbol('list'): lambda *x: RList(x),
+        Symbol('vector'): lambda *x: list(x),
+        Symbol('tuple'): lambda *x: tuple(x),
+        Symbol(','): lambda *x: tuple(x)
+        }
+
+    bool_tests = {
+        Symbol('eq?'): op.is_,
+        Symbol('equal?'): op.eq,
+        Symbol('callable?'): callable,
+        Symbol('null?'): lambda x: x == EmptyList(),
+        Symbol('string?'): lambda x: isinstance(x, str),
+        Symbol('symbol?'): lambda x: isinstance(x, Symbol),
+        Symbol('dict?'): lambda x: isinstance(x, dict),
+        Symbol('tuple?'): lambda x: isinstance(x, tuple),
+        Symbol('list?'): lambda x: isinstance(x, list),
+        Symbol('int?'): lambda x: isinstance(x, int),
+        Symbol('float?'): lambda x: isinstance(x, float),
+        Symbol('number?'): lambda x: type(x) in [int, float, complex],
+    }
+
+    scope = Scope(py_builtins)
+    for defs in [std_ops, key_words, type_cons, bool_tests]:
+        scope.update(defs)
+    return scope
+
+
+def get_syntax():
+    '''
+    Built-in language features for use in the evaluator.
+    User defined macros will be stored in the same Scope as these.(?)
+
+    All macros will be passed a list of tokens, and evaluator that will
+    handle eval and an scope to evaluate in.
+    '''
+    # NOTE: AttributeError will be caught and not passed up the call stack!
+    def _quote(tokens, evaluator, scope):
         '''
-        Built-in language features for use in the evaluator.
-        User defined macros will be stored in the same Scope as these.(?)
-
-        All macros will be passed a list of tokens, and evaluator that will
-        handle eval and an scope to evaluate in.
+        Quote an atom or s-expression.
+            (quote exp) or '(exp)
         '''
-        # NOTE: AttributeError will be caught and not passed up the call stack!
-        def _quote(tokens, evaluator, scope):
-            '''
-            Quote an atom or s-expression.
-                (quote exp) or '(exp)
-            '''
-            # NOTE: Only atoms and s-expressions can be quoted. Other
-            #       collections act as quoted atoms by default as calling
-            #       them is a Collection -> value call.
-            return tokens[0]
+        # NOTE: Only atoms and s-expressions can be quoted. Other
+        #       collections act as quoted atoms by default as calling
+        #       them is a Collection -> value call.
+        return tokens[0]
 
-        def _if(tokens, evaluator, scope):
-            '''
-            Evaluate an if statement.
-                (if test then else) or (if test then)
-            '''
-            if len(tokens) == 3:
-                test, _true, _false = tokens
-            elif len(tokens) == 2:
-                test, _true = tokens
-                _false = None
+    def _if(tokens, evaluator, scope):
+        '''
+        Evaluate an if statement.
+            (if (test) (then) (else)) or (if (test) (then))
+        '''
+        if len(tokens) == 3:
+            test, _true, _false = tokens
+        elif len(tokens) == 2:
+            test, _true = tokens
+            _false = None
+        else:
+            msg = 'if expression requires 2 or 3 clauses: got {}'
+            raise SyntaxError(msg.format(len(tokens)))
+        exp = _true if evaluator.eval(test, scope) else _false
+        return evaluator.eval(exp, scope) if exp else None
+
+    def _define(tokens, evaluator, scope):
+        '''
+        Bind a name to a value or the value of an expression
+            (define var (exp)) or (define var val)
+        '''
+        name, expression = tokens
+        scope[name] = evaluator.eval(expression, scope)
+
+    def _eval(tokens, evaluator, scope):
+        '''
+        Evaluate a bound symbol or quoted s-expression
+            (eval sym) or (eval 'exp)
+        '''
+        tokens = tokens[0]
+        if isinstance(tokens, list):
+            # tokens are [quote, [ ... ]]
+            val = evaluator.eval(tokens[1], scope)
+        else:
+            # single token is a symbol, try to look it up
+            try:
+                _val = scope[tokens]
+            except AttributeError:
+                raise NameError(
+                    'undefined symbol {}'.format(tokens)
+                    )
+            val = evaluator.eval(_val, scope)
+        return val
+
+    def _lambda(tokens, evaluator, scope):
+        '''
+        Define a lambda funtion.
+            (lambda (var ... ) (body))
+        '''
+        try:
+            assert(len(tokens) == 2)
+            assert(isinstance(tokens[0], RList))
+            assert(isinstance(tokens[1], RList))
+        except AssertionError:
+            raise SyntaxError('lambda takes two lists as arguments')
+
+        args, body = tokens
+        return RiplFunc(args, 'anonymous lambda', body, scope, evaluator)
+
+    def _defn(tokens, evaluator, scope):
+        '''
+        Sugar for defining a function:
+            (defn foo <"""docstr"""> (bar baz) (== bar baz))
+                      ~~~~~~~~~~~~~~ <- optional
+        '''
+        try:
+            if len(tokens) == 4:
+                docstring = tokens.pop(1)
             else:
-                msg = 'if expression requires 2 or 3 clauses: got {}'
-                raise SyntaxError(msg.format(len(tokens)))
-            exp = _true if evaluator.eval(test, scope) else _false
-            return evaluator.eval(exp, scope) if exp else None
+                docstring = None
+            assert(len(tokens) == 3)
+            assert(isinstance(tokens[0], Symbol))
+            assert(isinstance(tokens[1], RList))
+            assert(isinstance(tokens[2], RList))
+        except AssertionError:
+            raise SyntaxError('defn takes a symbol and two lists as arguments')
 
-        def _define(tokens, evaluator, scope):
-            '''
-            Bind a name to an expression
-                (define name exp)
-            '''
-            name, expression = tokens
-            scope[name] = evaluator.eval(expression, scope)
+        name, args, body = tokens
+        scope[name] = RiplFunc(args, docstring, body, scope, evaluator)
 
-        def _eval(tokens, evaluator, scope):
-            '''
-            Evaluate a bound symbol or quoted s-expression
-                (eval sym) or (eval 'exp)
-            '''
-            tokens = tokens[0]
-            if isinstance(tokens, list):
-                # tokens are [quote, [ ... ]]
-                val = evaluator.eval(tokens[1], scope)
-            else:
-                # single token is a symbol, try to look it up
-                try:
-                    _val = scope.find(Symbol(tokens))[tokens]
-                except AttributeError:
-                    raise NameError(
-                        'undefined symbol {}'.format(tokens)
-                        )
-                val = evaluator.eval(_val, scope)
-            return val
+    def _let(tokens, evaluator, scope):
+        '''
+        Let has two forms:
+            (let ((var1 val1) (var2 val2) ...) (body))
+            (let name ((var1 val1) (var2 val2) ...) (body))
+        In the second form, `name` is bound to `body` and can be called from
+        inside itself.
+        In both versions, `var1`..`varn` are bound in a new local scope for the
+        execution of `body`.
+        '''
+        if len(tokens) == 2:
+            _vars, _body = tokens
+            _name = 'anonymous lambda'
+            bind_self = False
+        else:
+            _name, _vars, _body = tokens
+            bind_self = True
+        args = [v[0] for v in _vars]
+        vals = [v[1] for v in _vars]
+        let = RiplFunc(args, _name, _body, scope, evaluator)
+        if bind_self:
+            let.scope = let.scope.new_child({_name: let})
+        return let(vals)
 
-        def _lambda(tokens, evaluator, scope):
-            '''
-            Define a lambda funtion.
-                (lambda (var ... ) (body))
-            '''
-            args, body = tokens
-            return RiplFunc(args, body, scope, evaluator)
+    syntax = zip('quote if define defn eval lambda let'.split(),
+                 [_quote, _if, _define, _defn, _eval, _lambda, _let])
 
-        syntax = zip('quote if define eval lambda'.split(),
-                     [_quote, _if, _define, _eval, _lambda])
-        self.update({Symbol(k): v for k, v in syntax})
+    syntax_scope = Scope({Symbol(k): v for k, v in syntax})
+
+    return syntax_scope
 
 
 class RiplFunc:
@@ -319,14 +393,18 @@ class RiplFunc:
     NOTE: RiplFuncs are always declared using `lambda`.
           The def{x} syntax is desugared in the lexer.
     '''
-    def __init__(self, args, body, scope, evaluator):
+    def __init__(self, args, docstring, body, scope, evaluator):
         self.args = args
         self.body = body
         self.scope = scope
         self.evaluator = evaluator
+        self.__doc__ = docstring
 
     def __call__(self, *arg_vals):
         res = self.evaluator.eval(
                 self.body,
-                self.scope._inner_scope(args=self.args, arg_vals=arg_vals))
+                nested_scope(
+                    current_scope=self.scope,
+                    args=self.args,
+                    vals=arg_vals))
         return res

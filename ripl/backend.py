@@ -135,7 +135,6 @@ class Reader:
             if not string.endswith(')'):
                 raise SyntaxError('Unclosed s-expression in input')
 
-        # tokens = []
         line_num = 1
         line_start = 0
 

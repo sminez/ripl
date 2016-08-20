@@ -4,7 +4,7 @@ from pygments.token import Text, Comment, Operator, Keyword, Name, String, \
     Number, Punctuation
 
 from pygments.lexers.python import PythonLexer
-from pygments.styles.monokai import MonokaiStyle
+from pygments.styles.paraiso_dark import ParaisoDarkStyle
 from prompt_toolkit.styles import style_from_pygments
 
 
@@ -13,47 +13,28 @@ from prompt_toolkit.styles import style_from_pygments
 #  #e9e1dd #f9f8f5 #cb6077 #d28b71 #f4bc87
 #  #beb55b #7bbda4 #8ab3b5 #a89bb9 #bb9584
 
-ripl_style = style_from_pygments(MonokaiStyle, {
+ripl_style = style_from_pygments(ParaisoDarkStyle, {
         Token.Comment: '#75715e italic',
-        Token.Keyword: '#8ab3b5',
-        Token.Name: '#a89bb9',
-        Token.String: '#beb55b',
-        Token.String.Symbol: '#cb6077',
-        Token.Number: '#bb9584',
-        Token.Operator: '#f4bc87',
-        Token.Generic: '#d28b71',
-        Token.Punctuation: '#c1c9db',
         Token.Punctuation.Quoted: '#a89bb9',
     })
 
 
 class RiplLexer(RegexLexer):
-    """
-    Used to colour user input in the repl
-    """
     name = 'RIPL'
     aliases = ['Ripl']
-    filenames = ['*.ripl']
-    mimetypes = ['text/x-ripl', 'application/x-ripl']
+    filenames = ['*.rpl']
 
     special_forms = (
         'car', 'cdr', 'import', 'do', 'is', 'in', 'eval',
         'quasiquote', 'unquote', 'unquote-splice', 'quote')
 
-    declarations = (
-        'def', 'define', 'defunc', 'defmacro', 'defclass', 'lambda', 'setv'
-    )
+    declarations = 'define defn defmacro defclass lambda setv let'.split()
 
-    ripl_builtins = ()
-
-    ripl_core = (
-        'cycle', 'dec', 'distinct', 'drop', 'even?', 'filter', 'inc',
-        'instance?', 'iterable?', 'iterate', 'iterator?', 'neg?',
-        'none?', 'nth', 'numeric?', 'odd?', 'pos?', 'remove', 'repeat',
-        'repeatedly', 'take', 'take_nth', 'take_while', 'zero?'
-    )
-
-    builtins = ripl_builtins + ripl_core
+    builtins = (
+        'define defn lambda if for-each quote yield yield-from'
+        ' apply append begin car cdr cons not vector eq? equal?'
+        ' callable? null? symbol? dict? tuple? list? vector?'
+        ' int? float? number? complex? eval').split()
 
     # valid names for identifiers
     valid_name = r'(?!#)[\w!$%*+<=>?/.#-]+'

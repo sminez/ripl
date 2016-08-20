@@ -1,9 +1,9 @@
 import argparse
 
-from .evaluators import RiplRepl
+from .evaluators import REPL
 
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 
 def main(argv=None):
@@ -26,12 +26,6 @@ def main(argv=None):
         required=False,
     )
 
-    parser.add_argument(
-        '--debug',
-        action='store_true',
-        required=False,
-    )
-
     if argv:
         args = parser.parse_args([argv])
     else:
@@ -40,9 +34,9 @@ def main(argv=None):
     if args.version:
         print(__version__)
     elif args.script:
-        repl = RiplRepl()
+        repl = REPL()
         repl.eval_and_print(args.script)
     else:
         # Spin up a repl with optional debug
-        repl = RiplRepl(debug=args.debug)
-        repl.repl()
+        repl = REPL()
+        repl.read()
