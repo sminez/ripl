@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from ripl.evaluators import RiplEvaluator
+from ripl.evaluators import Evaluator
 from ripl.bases import Scope, Keyword, Symbol
 from ripl.bases import RList, RVector, RDict, RString, EmptyList
 
@@ -76,7 +76,7 @@ class BuiltInTest(TestCase):
 
     def _eval(self, string):
         '''Helper for evals'''
-        evaluator = RiplEvaluator()
+        evaluator = Evaluator()
         tokens = evaluator.reader.lex(string)
         exp = next(evaluator.reader.parse(tokens))
         result = evaluator.eval(exp, evaluator.global_scope)

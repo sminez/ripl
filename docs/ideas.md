@@ -96,3 +96,5 @@ typing.get_type_hints(foo)
 'b': <class 'str'>
 }
 ```
+
+http://stackoverflow.com/questions/2220699/whats-the-difference-between-eval-exec-and-compile-in-python

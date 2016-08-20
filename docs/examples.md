@@ -68,3 +68,23 @@ optimises it if posible (c types?) while raising a type error if invalid types a
 passed.
 `for-in` is a pythonic for loop. enclosing it in a list literal makes a list-comp.
 Enclosing it in a dict literal makes a dict comp so long as it generates pairs.
+
+```Lisp
+;; Haskell style pattern matching
+(defn zipwith (f a b)
+  (match (a b)
+  (('() _) '())
+  ((_ '()) '())
+  (((: x xs) (: y ys)) (: (f x y) (zipwith f xs ys)))))
+
+;; Pythonic for loop that retains generator behaviour
+(defn zipwith2 (f a b)
+  (for-each pair (zip a b)
+  (yield (f *pair))))
+
+;; LISPy cons/car/cdr with explicit bool testing
+(defn zipwith3 (f a b)
+  (if (or (== a '()) (== b '()))
+  '()
+  (cons (f (car a) (car b)) (zipwith3 (cdr a) (cdr b)))))
+```

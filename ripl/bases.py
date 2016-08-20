@@ -221,7 +221,7 @@ def get_global_scope():
         Symbol('cons'): lambda x, y: y._cons(x),     # LISPy
         Symbol(':'): lambda x, y: y._cons(x),        # Haskelly
         Symbol('not'): op.not_,
-        Symbol('length'): len
+        Symbol('len'): len
         }
 
     type_cons = {
@@ -239,7 +239,7 @@ def get_global_scope():
         Symbol('eq?'): op.is_,
         Symbol('equal?'): op.eq,
         Symbol('callable?'): callable,
-        Symbol('null?'): lambda x: x == [],
+        Symbol('null?'): lambda x: x == EmptyList(),
         Symbol('string?'): lambda x: isinstance(x, str),
         Symbol('symbol?'): lambda x: isinstance(x, Symbol),
         Symbol('dict?'): lambda x: isinstance(x, dict),
@@ -332,14 +332,19 @@ def get_syntax():
             raise SyntaxError('lambda takes two lists as arguments')
 
         args, body = tokens
-        return RiplFunc(args, body, scope, evaluator)
+        return RiplFunc(args, 'anonymous lambda', body, scope, evaluator)
 
     def _defn(tokens, evaluator, scope):
         '''
         Sugar for defining a function:
-            (defn foo (bar baz) (== bar baz))
+            (defn foo <"""docstr"""> (bar baz) (== bar baz))
+                      ~~~~~~~~~~~~~~ <- optional
         '''
         try:
+            if len(tokens) == 4:
+                docstring = tokens.pop(1)
+            else:
+                docstring = None
             assert(len(tokens) == 3)
             assert(isinstance(tokens[0], Symbol))
             assert(isinstance(tokens[1], RList))
@@ -348,10 +353,34 @@ def get_syntax():
             raise SyntaxError('defn takes a symbol and two lists as arguments')
 
         name, args, body = tokens
-        scope[name] = RiplFunc(args, body, scope, evaluator)
+        scope[name] = RiplFunc(args, docstring, body, scope, evaluator)
 
-    syntax = zip('quote if define defn eval lambda'.split(),
-                 [_quote, _if, _define, _defn, _eval, _lambda])
+    def _let(tokens, evaluator, scope):
+        '''
+        Let has two forms:
+            (let ((var1 val1) (var2 val2) ...) (body))
+            (let name ((var1 val1) (var2 val2) ...) (body))
+        In the second form, `name` is bound to `body` and can be called from
+        inside itself.
+        In both versions, `var1`..`varn` are bound in a new local scope for the
+        execution of `body`.
+        '''
+        if len(tokens) == 2:
+            _vars, _body = tokens
+            _name = 'anonymous lambda'
+            bind_self = False
+        else:
+            _name, _vars, _body = tokens
+            bind_self = True
+        args = [v[0] for v in _vars]
+        vals = [v[1] for v in _vars]
+        let = RiplFunc(args, _name, _body, scope, evaluator)
+        if bind_self:
+            let.scope = let.scope.new_child({_name: let})
+        return let(vals)
+
+    syntax = zip('quote if define defn eval lambda let'.split(),
+                 [_quote, _if, _define, _defn, _eval, _lambda, _let])
 
     syntax_scope = Scope({Symbol(k): v for k, v in syntax})
 
@@ -364,11 +393,12 @@ class RiplFunc:
     NOTE: RiplFuncs are always declared using `lambda`.
           The def{x} syntax is desugared in the lexer.
     '''
-    def __init__(self, args, body, scope, evaluator):
+    def __init__(self, args, docstring, body, scope, evaluator):
         self.args = args
         self.body = body
         self.scope = scope
         self.evaluator = evaluator
+        self.__doc__ = docstring
 
     def __call__(self, *arg_vals):
         res = self.evaluator.eval(
