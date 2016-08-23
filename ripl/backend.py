@@ -40,7 +40,7 @@ RIPL_TAGS = [
         Tag(r'\'\(.+\)',                            'QUOTED_SEXP'),
         Tag(r'\'.+(?=[\)\]}\s])?',                  'QUOTED_ATOM'),
         Tag(r'`\(.+\)',                             'QUASI_QUOTED'),
-        Tag(r'~\(.+\)',                             'CURRIED_SEXP'),
+        Tag(r'&\(.+\)',                             'CURRIED_SEXP'),
         # Tag(r'\(,.+\)',                             'TUPLE'),
         Tag(r'(\(\)|\s*None)',                      'NULL'),
         # () {} []

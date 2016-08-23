@@ -46,6 +46,22 @@ class LexerTest(TestCase):
         with self.assertRaises(StopIteration):
             token = next(actual_tkns)
 
+    def test_quoting(self):
+        '''quote notation works'''
+        s = "'(i should be quoted!)"
+        tokens = [t.val for t in self.reader.lex(s)]
+        self.assertEqual(
+                tokens,
+                ['(', 'quote', '(', 'i', 'should', 'be', 'quoted!', ')', ')'])
+
+    def test_quasiquoting(self):
+        '''quasiquote notation works'''
+        s = "`(foo bar baz)"
+        tokens = [t.val for t in self.reader.lex(s)]
+        self.assertEqual(
+                tokens,
+                ['(', 'quasiquote', '(', 'foo', 'bar', 'baz', ')', ')'])
+
 
 class ParserTest(TestCase):
     reader = Reader()
