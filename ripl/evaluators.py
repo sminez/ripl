@@ -21,9 +21,9 @@ from prompt_toolkit.shortcuts import \
         create_prompt_application, create_output, create_eventloop
 
 from ripl.backend import Reader
-from ripl.bases import Symbol, EmptyList, RList
+from ripl.bases import Symbol, EmptyList, RList, Func, nested_scope, Scope
 from ripl.repl_utils import RiplLexer, ripl_style
-from ripl.bases import get_global_scope, get_syntax
+from ripl.bases import get_global_scope
 
 import ripl.prelude as prelude
 
@@ -90,7 +90,7 @@ class Evaluator:
             self.global_scope.update(funcs)
 
         self.reader = Reader()
-        self.syntax = get_syntax()
+        self.syntax = Scope()
 
     def py_to_lisp_str(self, exp):
         '''
@@ -119,45 +119,150 @@ class Evaluator:
         Try to evaluate an expression in a given scope.
         NOTE: Special language features and syntax found here.
         '''
-        if isinstance(tkns, RList):
-            # Internal representation of an s-expression
-            if tkns == EmptyList():
-                return EmptyList()
-            elif isinstance(tkns[0], Container):
-                if len(tkns) == 2:
-                    # Containers are functions of Key/Index -> value so
-                    # we allow calling them as syntax for `get`
-                    # (<CONTAINER> KEY/INDEX) -> VALUE
-                    return tkns[0].__getitem__(tkns[1])
+        while True:
+            if isinstance(tkns, RList):
+                # Internal representation of an s-expression
+                if tkns == EmptyList():
+                    return EmptyList()
+                elif isinstance(tkns[0], Container):
+                    if len(tkns) == 2:
+                        # Containers are functions of Key/Index -> value so
+                        # we allow calling them as syntax for `get`
+                        # (<CONTAINER> KEY/INDEX) -> VALUE
+                        return tkns[0].__getitem__(tkns[1])
+                    else:
+                        raise SyntaxError('Invalid function call')
                 else:
-                    raise SyntaxError('Invalid function call')
+                    # This is a call
+                    # NOTE: This args always a list:
+                    #       (foo 1 2 3)   -> foo, [1,2,3]
+                    #       (foo 1)       -> foo, [1]
+                    #       (foo (1 2 3)) -> foo, [(1,2,3)]
+                    call, *args = tkns
+
+                    if call == Symbol('quote'):
+                        # Return the argument without evaluation
+                        return args[0]
+                    elif call == Symbol('quasiquote'):
+                        # TODO: check that this works!
+                        # Splice is unquoted args and then return
+                        # without evaluating
+                        exp = args[0]
+                        if len(exp) == 1:
+                            return exp  # [Symbol('quote'), args[0]]
+                        else:
+                            rep = []
+                            iter_exp = iter(exp)
+                            for element in iter_exp:
+                                if element == Symbol('~'):
+                                    unquoted = next(iter_exp)
+                                    rep.append(self.eval(unquoted, scope))
+                                elif element == Symbol('~@'):
+                                    unquoted = next(iter_exp)
+                                    if callable(unquoted[0]):
+                                        expression = self.eval(unquoted, scope)
+                                    else:
+                                        expression = unquoted
+                                    if not isinstance(expression, RList):
+                                        raise SyntaxError(
+                                            'Can only use ~@ on an expression')
+                                    for atom in expression:
+                                        rep.append(atom)
+                                else:
+                                    rep.append(element)
+                            return RList(rep)
+                    elif call == Symbol('define'):
+                        # Attempt to define a new symbol, fails if the
+                        # symbol is already defined
+                        name, expression = args
+                        if scope.get(name):
+                            raise SyntaxError(
+                                    'use set! to modify a stored symbol')
+                        scope[name] = self.eval(expression, scope)
+                        return None
+                    elif call == Symbol('defn'):
+                        # (defn foo
+                        #  """do that voodoo that foo do"""
+                        #  (body ...))
+                        # handle function definitions
+                        if len(args) == 4:
+                            docstring = args.pop(1)
+                        else:
+                            docstring = None
+                        name, args, body = args
+                        scope[name] = Func(args, docstring, body, scope, self)
+                        return name
+                    elif call == Symbol('defmacro'):
+                        # handle macro definitions
+                        raise SyntaxError("haven't finished macros!")
+                    elif call == Symbol('set'):
+                        # dame as define but allow mutation
+                        name, expression = args
+                        scope[name] = self.eval(expression, scope)
+                        return None
+                    elif call == Symbol('if'):
+                        # handle both forms of if
+                        # if/elif... will be replaced with a cond macro
+                        if len(args) == 3:
+                            test, _true, _false = args
+                        elif len(args) == 2:
+                            test, _true = args
+                            _false = None
+                        tkns = _true if self.eval(test, scope) else _false
+                    elif call == Symbol('eval'):
+                        # evaluate a quoted expression
+                        tokens = args[0]
+                        if isinstance(tokens, list):
+                            # tokens are [quote, [ ... ]]
+                            return self.eval(tokens[1], scope)
+                        else:
+                            # single token is a symbol, try to look it up
+                            try:
+                                _val = scope[tokens]
+                            except AttributeError:
+                                raise NameError(
+                                    'undefined symbol {}'.format(tokens)
+                                    )
+                            tkns = self.eval(_val, scope)
+                    elif call == Symbol('lambda'):
+                        # make a procedure
+                        bindings, body = args
+                        return Func(bindings, 'anonymous lambda', body,
+                                    scope, self)
+                    else:
+                        # try:
+                        #     # See if this is a known piece of syntax
+                        #     builtin = self.syntax[call]
+                        #     tkns = builtin(args, self, scope)
+                        # except (KeyError, TypeError):
+                        func, *arg_vals = tkns
+                        proc = self.eval(func, scope)
+                        args = [self.eval(exp, scope) for exp in arg_vals]
+                        if isinstance(proc, Func):
+                            # A ripl Func with a body we can extract to allow
+                            # tail calls
+                            tkns = proc.body
+                            scope = nested_scope(proc.scope, proc.args, args)
+                        else:
+                            # Evaluate
+                            return proc(*args)
+                        # except:
+                        #     raise SyntaxError(
+                        #             'Invalid arguments for {}'.format(call))
             else:
-                # This is a function call
-                call, *args = tkns
+                # This is an atom: a symbol or a built-in type
+                # Check to see if we have it in the current scope.
                 try:
-                    # See if this is a known piece of syntax
-                    builtin = self.syntax[call]
-                    return builtin(args, self, scope)
-                except (KeyError, TypeError):
-                    func, *arg_vals = tkns
-                    proc = self.eval(func, scope)
-                    args = [self.eval(exp, scope) for exp in arg_vals]
-                    return proc(*args)
-                except:
-                    raise SyntaxError('Invalid arguments for {}'.format(call))
-        else:
-            # This is an atom: a symbol or a built-in type
-            # Check to see if we have it in the current scope.
-            try:
-                return scope[tkns]
-            except KeyError:
-                # We just tried to perform lookup on None:
-                # --> tkns is not a known symbol
-                if isinstance(tkns, Symbol):
-                    raise NameError('symbol {} is not defined'.format(tkns))
-                else:
-                    # It's a value
-                    return tkns
+                    return scope[tkns]
+                except KeyError:
+                    # We just tried to perform lookup on None:
+                    # --> tkns is not a known symbol
+                    if isinstance(tkns, Symbol):
+                        raise NameError(
+                                 'symbol {} is not defined'.format(tkns))
+                    else:
+                        # It's a value
+                        return tkns
 
 
 class REPL(Evaluator):

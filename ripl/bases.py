@@ -228,6 +228,7 @@ def get_global_scope():
         Symbol('str'): lambda x: RString(x),
         Symbol('int'): lambda x: int(x),
         Symbol('float'): lambda x: float(x),
+        Symbol('complex'): lambda x: complex(x),
         Symbol('dict'): lambda *x: RDict(x),
         Symbol('list'): lambda *x: RList(x),
         Symbol('vector'): lambda *x: list(x),
@@ -256,142 +257,9 @@ def get_global_scope():
     return scope
 
 
-def get_syntax():
-    '''
-    Built-in language features for use in the evaluator.
-    User defined macros will be stored in the same Scope as these.(?)
-
-    All macros will be passed a list of tokens, and evaluator that will
-    handle eval and an scope to evaluate in.
-    '''
-    # NOTE: AttributeError will be caught and not passed up the call stack!
-    def _quote(tokens, evaluator, scope):
-        '''
-        Quote an atom or s-expression.
-            (quote exp) or '(exp)
-        '''
-        # NOTE: Only atoms and s-expressions can be quoted. Other
-        #       collections act as quoted atoms by default as calling
-        #       them is a Collection -> value call.
-        return tokens[0]
-
-    def _if(tokens, evaluator, scope):
-        '''
-        Evaluate an if statement.
-            (if (test) (then) (else)) or (if (test) (then))
-        '''
-        if len(tokens) == 3:
-            test, _true, _false = tokens
-        elif len(tokens) == 2:
-            test, _true = tokens
-            _false = None
-        else:
-            msg = 'if expression requires 2 or 3 clauses: got {}'
-            raise SyntaxError(msg.format(len(tokens)))
-        exp = _true if evaluator.eval(test, scope) else _false
-        return evaluator.eval(exp, scope) if exp else None
-
-    def _define(tokens, evaluator, scope):
-        '''
-        Bind a name to a value or the value of an expression
-            (define var (exp)) or (define var val)
-        '''
-        name, expression = tokens
-        scope[name] = evaluator.eval(expression, scope)
-
-    def _eval(tokens, evaluator, scope):
-        '''
-        Evaluate a bound symbol or quoted s-expression
-            (eval sym) or (eval 'exp)
-        '''
-        tokens = tokens[0]
-        if isinstance(tokens, list):
-            # tokens are [quote, [ ... ]]
-            val = evaluator.eval(tokens[1], scope)
-        else:
-            # single token is a symbol, try to look it up
-            try:
-                _val = scope[tokens]
-            except AttributeError:
-                raise NameError(
-                    'undefined symbol {}'.format(tokens)
-                    )
-            val = evaluator.eval(_val, scope)
-        return val
-
-    def _lambda(tokens, evaluator, scope):
-        '''
-        Define a lambda funtion.
-            (lambda (var ... ) (body))
-        '''
-        try:
-            assert(len(tokens) == 2)
-            assert(isinstance(tokens[0], RList))
-            assert(isinstance(tokens[1], RList))
-        except AssertionError:
-            raise SyntaxError('lambda takes two lists as arguments')
-
-        args, body = tokens
-        return RiplFunc(args, 'anonymous lambda', body, scope, evaluator)
-
-    def _defn(tokens, evaluator, scope):
-        '''
-        Sugar for defining a function:
-            (defn foo <"""docstr"""> (bar baz) (== bar baz))
-                      ~~~~~~~~~~~~~~ <- optional
-        '''
-        try:
-            if len(tokens) == 4:
-                docstring = tokens.pop(1)
-            else:
-                docstring = None
-            assert(len(tokens) == 3)
-            assert(isinstance(tokens[0], Symbol))
-            assert(isinstance(tokens[1], RList))
-            assert(isinstance(tokens[2], RList))
-        except AssertionError:
-            raise SyntaxError('defn takes a symbol and two lists as arguments')
-
-        name, args, body = tokens
-        scope[name] = RiplFunc(args, docstring, body, scope, evaluator)
-
-    def _let(tokens, evaluator, scope):
-        '''
-        Let has two forms:
-            (let ((var1 val1) (var2 val2) ...) (body))
-            (let name ((var1 val1) (var2 val2) ...) (body))
-        In the second form, `name` is bound to `body` and can be called from
-        inside itself.
-        In both versions, `var1`..`varn` are bound in a new local scope for the
-        execution of `body`.
-        '''
-        if len(tokens) == 2:
-            _vars, _body = tokens
-            _name = 'anonymous lambda'
-            bind_self = False
-        else:
-            _name, _vars, _body = tokens
-            bind_self = True
-        args = [v[0] for v in _vars]
-        vals = [v[1] for v in _vars]
-        let = RiplFunc(args, _name, _body, scope, evaluator)
-        if bind_self:
-            let.scope = let.scope.new_child({_name: let})
-        return let(vals)
-
-    syntax = zip('quote if define defn eval lambda let'.split(),
-                 [_quote, _if, _define, _defn, _eval, _lambda, _let])
-
-    syntax_scope = Scope({Symbol(k): v for k, v in syntax})
-
-    return syntax_scope
-
-
-class RiplFunc:
+class Func:
     '''
     A user-defined function.
-    NOTE: RiplFuncs are always declared using `lambda`.
-          The def{x} syntax is desugared in the lexer.
     '''
     def __init__(self, args, docstring, body, scope, evaluator):
         self.args = args

@@ -61,18 +61,6 @@ class EvaluatorTest(TestCase):
         self.assertEqual(result, None)
         self.assertEqual(result, RList())
 
-    def test_quoting_sexp(self):
-        '''Quoting s-expressions works'''
-        string = "'(1 2 3)"
-        result = self._eval(string)
-        self.assertEqual(result, RList([1, 2, 3]))
-
-    def test_quoting_atom(self):
-        '''Quoting atoms works'''
-        string = "'a"
-        result = self._eval(string)
-        self.assertEqual(result, Symbol('a'))
-
     def test_eval_vector(self):
         '''The ([1 2 3] 0) -> 1 syntax works'''
         string = '([1 2 3] 0)'
@@ -96,3 +84,46 @@ class EvaluatorTest(TestCase):
         string = '({1 2, 3 4} 3)'
         result = self._eval(string)
         self.assertEqual(result, 4)
+
+    def test_quoting_sexp(self):
+        '''Quoting s-expressions works'''
+        string = "'(1 2 3)"
+        result = self._eval(string)
+        self.assertEqual(result, RList([1, 2, 3]))
+
+    def test_quoting_atom(self):
+        '''Quoting atoms works'''
+        string = "'a"
+        result = self._eval(string)
+        self.assertEqual(result, Symbol('a'))
+
+    def test_quasiquote_no_unquote(self):
+        '''Quasiquoting with no unquotes is like quoting'''
+        string = "`(1 2 3)"
+        result = self._eval(string)
+        self.assertEqual(result, RList([1, 2, 3]))
+
+    def test_quasiquote_unquote_sexp(self):
+        '''Unquoting s-expressions works'''
+        string = "`(1 2 ~(+ 1 3))"
+        result = self._eval(string)
+        self.assertEqual(result, RList([1, 2, 4]))
+
+    def test_quasiquote_unquotesplice_sexp(self):
+        '''Unquote-splicing s-expressions works'''
+        string = "`(1 2 ~@(1 3))"
+        result = self._eval(string)
+        self.assertEqual(result, RList([1, 2, 1, 3]))
+
+    def test_if(self):
+        '''If expressions work'''
+        s1 = '(if (== 1 2) True False)'
+        s2 = '(if (!= 1 2) True False)'
+        # These two should have an implicit None if False
+        s3 = '(if (== 1 2) True)'
+        s4 = '(if (!= 1 2) True)'
+        expressions = [(s1, False), (s2, True),
+                       (s3, None), (s4, True)]
+        for exp, expected in expressions:
+            result = self._eval(exp)
+            self.assertEqual(result, expected)
