@@ -129,6 +129,10 @@ class Evaluator:
                         # Containers are functions of Key/Index -> value so
                         # we allow calling them as syntax for `get`
                         # (<CONTAINER> KEY/INDEX) -> VALUE
+                        if isinstance(tkns[0], RList):
+                            if tkns[0][0] == Symbol('quote'):
+                                raise SyntaxError(
+                                        'Cannot index into quoted list')
                         return tkns[0].__getitem__(tkns[1])
                     else:
                         raise SyntaxError('Invalid function call')

@@ -74,7 +74,7 @@ class EvaluatorTest(TestCase):
         self.assertEqual(result, 2)
 
     def test_eval_quoted_list(self):
-        '''('(1 2 3) 0) raises a SyntaxError'''
+        '''('(1 2 3) 0) raises a syntax error'''
         with self.assertRaises(SyntaxError):
             string = "('(1 2 3) 1)"
             self._eval(string)
