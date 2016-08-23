@@ -1,5 +1,6 @@
 import functools
 import collections
+import collections.abc
 import operator as op
 
 
@@ -54,16 +55,65 @@ class Keyword:
             return self.str == other
 
 
-class RList(collections.deque):
+class RList(collections.abc.MutableSequence):
     '''Attempt at a LISP style linked list'''
+    def __init__(self, data=None):
+        if data:
+            self.data = collections.deque(data)
+        else:
+            self.data = collections.deque()
+
+    def __eq__(self, other):
+        if not isinstance(other, RList):
+            return False
+        else:
+            return self.data == other.data
+
+    def __iter__(self):
+        return iter(self.data)
+
     def _cons(self, other):
         # Need to reverse otherwise (cons '(1 2) `(3 4)) -> (2 1 3 4)
         try:
-            self.extendleft(iter(other))
+            self.data.extendleft(iter(other))
             return self
         except:
-            self.extendleft([other])
+            self.data.extendleft([other])
             return self
+
+    def __call__(self, index):
+        '''Collections are mappings to values'''
+        return self[index]
+
+    def __repr__(self):
+        return '(' + ' '.join([str(x) for x in self.data]) + ')'
+
+    def __getitem__(self, key):
+        '''Hack slicing onto deques'''
+        if isinstance(key, slice):
+            start, stop, step = key.start, key.stop, key.step
+            start = start if start else 0
+            stop = stop if stop else len(self)
+            step = step if step else 1
+            return RList([self.data[x] for x in range(start, stop, step)])
+        else:
+            return self.data[key]
+
+    def __delitem__(self, index):
+        del self.data[index]
+
+    def __setitem__(self, index, value):
+        self.data[index] = value
+
+    def insert(self, index, value):
+        self.data.insert(index, value)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __add__(self, other):
+        new = RList(self.data + other.data)
+        return new
 
 
 class EmptyList(RList):
@@ -220,8 +270,10 @@ def get_global_scope():
         Symbol('cdr'): lambda x: x[1:],
         Symbol('cons'): lambda x, y: y._cons(x),     # LISPy
         Symbol(':'): lambda x, y: y._cons(x),        # Haskelly
+        Symbol('and'): op.and_,
+        Symbol('or'): op.or_,
         Symbol('not'): op.not_,
-        Symbol('len'): len
+        Symbol('len'): len,
         }
 
     type_cons = {

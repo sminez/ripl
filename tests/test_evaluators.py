@@ -115,6 +115,12 @@ class EvaluatorTest(TestCase):
         result = self._eval(string)
         self.assertEqual(result, RList([1, 2, 1, 3]))
 
+    def test_quasiquote_unquotesplice_callable(self):
+        '''Unquote-splicing callable s-expressions works'''
+        string = "`(1 2 ~@(cdr '(2 1 3)))"
+        result = self._eval(string)
+        self.assertEqual(result, RList([1, 2, 1, 3]))
+
     def test_if(self):
         '''If expressions work'''
         s1 = '(if (== 1 2) True False)'
