@@ -1,6 +1,6 @@
 import sys
 import traceback
-from collections import deque, Container, Counter
+from collections import Container, Counter
 
 from pygments.token import Token
 
@@ -98,9 +98,9 @@ class Evaluator:
         NOTE: Not referencing internal types here as we need interopt with
               other Python code.
         '''
-        if isinstance(exp, deque):
+        if isinstance(exp, RList):
             # (1 2 ... n)
-            return '(' + ' '.join(map(self.py_to_lisp_str, exp)) + ')'
+            return str(exp)
         elif isinstance(exp, list):
             # [1 2 ... n]
             return '[' + ' '.join(map(self.py_to_lisp_str, exp)) + ']'
@@ -129,6 +129,10 @@ class Evaluator:
                         # Containers are functions of Key/Index -> value so
                         # we allow calling them as syntax for `get`
                         # (<CONTAINER> KEY/INDEX) -> VALUE
+                        if isinstance(tkns[0], RList):
+                            if tkns[0][0] == Symbol('quote'):
+                                raise SyntaxError(
+                                        'Cannot index into quoted list')
                         return tkns[0].__getitem__(tkns[1])
                     else:
                         raise SyntaxError('Invalid function call')
@@ -155,13 +159,15 @@ class Evaluator:
                             iter_exp = iter(exp)
                             for element in iter_exp:
                                 if element == Symbol('~'):
+                                    # Unquote s-expression
                                     unquoted = next(iter_exp)
                                     rep.append(self.eval(unquoted, scope))
                                 elif element == Symbol('~@'):
+                                    # Unquote and splice s-expression
                                     unquoted = next(iter_exp)
-                                    if callable(unquoted[0]):
+                                    try:
                                         expression = self.eval(unquoted, scope)
-                                    else:
+                                    except TypeError:
                                         expression = unquoted
                                     if not isinstance(expression, RList):
                                         raise SyntaxError(
@@ -191,7 +197,7 @@ class Evaluator:
                             docstring = None
                         name, args, body = args
                         scope[name] = Func(args, docstring, body, scope, self)
-                        return name
+                        return None
                     elif call == Symbol('defmacro'):
                         # handle macro definitions
                         raise SyntaxError("haven't finished macros!")
@@ -230,11 +236,6 @@ class Evaluator:
                         return Func(bindings, 'anonymous lambda', body,
                                     scope, self)
                     else:
-                        # try:
-                        #     # See if this is a known piece of syntax
-                        #     builtin = self.syntax[call]
-                        #     tkns = builtin(args, self, scope)
-                        # except (KeyError, TypeError):
                         func, *arg_vals = tkns
                         proc = self.eval(func, scope)
                         args = [self.eval(exp, scope) for exp in arg_vals]
@@ -246,9 +247,6 @@ class Evaluator:
                         else:
                             # Evaluate
                             return proc(*args)
-                        # except:
-                        #     raise SyntaxError(
-                        #             'Invalid arguments for {}'.format(call))
             else:
                 # This is an atom: a symbol or a built-in type
                 # Check to see if we have it in the current scope.

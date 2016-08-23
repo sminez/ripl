@@ -37,10 +37,10 @@ class Token:
 RIPL_TAGS = [
         Tag(r';#\(.*\)',                            'COMMENT_SEXP'),
         Tag(r';.*\n?',                              'COMMENT'),
-        Tag(r'\'\(.+\)',                            'QUOTED_SEXP'),
+        Tag(r'\'\(.+?\)',                           'QUOTED_SEXP'),
         Tag(r'\'.+(?=[\)\]}\s])?',                  'QUOTED_ATOM'),
-        Tag(r'`\(.+\)',                             'QUASI_QUOTED'),
-        Tag(r'&\(.+\)',                             'CURRIED_SEXP'),
+        Tag(r'`\(.+?\)',                            'QUASI_QUOTED'),
+        Tag(r'&\(.+?\)',                            'CURRIED_SEXP'),
         # Tag(r'\(,.+\)',                             'TUPLE'),
         Tag(r'(\(\)|\s*None)',                      'NULL'),
         # () {} []
@@ -60,6 +60,8 @@ RIPL_TAGS = [
         Tag(r'-?\d+',                               'INT'),
         # Deliminators
         Tag(r',',                                   'COMMA'),
+        Tag(r'~@',                                  'UNQUOTE_SPLICE'),
+        Tag(r'~',                                   'UNQUOTE'),
         Tag(r'\.',                                  'DOT'),
         Tag(r'\n',                                  'NEWLINE'),
         Tag(r'\s+',                                 'WHITESPACE'),
@@ -86,6 +88,10 @@ def make_atom(token):
         return Symbol(token.val)
     elif token.tag == 'KEYWORD':
         return Keyword(token.val)
+    elif token.tag.startswith('UNQUOTE'):
+        # Using `~` and `~@` symbols as markers that the _next_
+        # token has been unquoted
+        return Symbol(token.val)
     else:
         return token.val
 

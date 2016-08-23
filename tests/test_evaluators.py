@@ -74,7 +74,7 @@ class EvaluatorTest(TestCase):
         self.assertEqual(result, 2)
 
     def test_eval_quoted_list(self):
-        '''('(1 2 3) 0) raises a SyntaxError'''
+        '''('(1 2 3) 0) raises a syntax error'''
         with self.assertRaises(SyntaxError):
             string = "('(1 2 3) 1)"
             self._eval(string)
@@ -112,6 +112,12 @@ class EvaluatorTest(TestCase):
     def test_quasiquote_unquotesplice_sexp(self):
         '''Unquote-splicing s-expressions works'''
         string = "`(1 2 ~@(1 3))"
+        result = self._eval(string)
+        self.assertEqual(result, RList([1, 2, 1, 3]))
+
+    def test_quasiquote_unquotesplice_callable(self):
+        '''Unquote-splicing callable s-expressions works'''
+        string = "`(1 2 ~@(cdr '(2 1 3)))"
         result = self._eval(string)
         self.assertEqual(result, RList([1, 2, 1, 3]))
 
