@@ -48,8 +48,6 @@ class Keyword:
     def _keyword_comp(self, other):
         '''Used for when we store something as a keyword internally'''
         if isinstance(other, Keyword):
-            return self == other
-        elif isinstance(other, Symbol):
             return self.str == other.str
         else:
             return self.str == other
