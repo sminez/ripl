@@ -4,23 +4,24 @@ If the match is successful it will return a dict
 mapping the pattern variables to the values they
 matched against.
 
-So far, simple patterns work:
-    (a b c d) -> (1 2 3 4)         == match
+Simple patterns work (an underscore discards the value):
+    (a b c d) -> (1 2 3 4)         == a:1, b:2, c:3, d:4
+    (_ _ a _) -> (1 2 3 4)         == a:3
+    (a b (c d)) -> (1 2 (3 4))     == a:1, b:2, c:3, d:4
+    ((a b) (_ d)) -> ((1 2) (3 4)) == a:1, b:2, d:4
     (a b c) -> (1 2 3 4)           == failure
-    (a b (c d)) -> (1 2 (3 4))     == match
     (a b c d) -> (1 2 (3 4))       == failure
-    ((a b) (c d)) -> ((1 2) (3 4)) == match
 
 *args style `and everything else` also works:
-    (a *b) -> (1 2 3 4 5)          == match
-    (a *b c) -> (1 2 3 4 5)        == match
+    (a *b) -> (1 2 3 4 5)          == a:1, b:[2,3,4,5]
+    (a *b c) -> (1 2 3 4 5)        == a:1, b:[2,3,4], c:5
     (a *b c d) -> (1 2 3)          == failure
     (a *b *c) -> (1 2 3)           == SyntaxError
 
 Repeating subpatterns work:
-    ((a b) ...) -> ((1 2) (3 4))
-
-is a match and gives a -> [1, 3], b -> [2, 4].
+    ((a b) ...) -> ((1 2) (3 4))   == a:[1, 3], b:[2, 4]
+    (x y (a b) ...)
+            -> (5 6 (1 2) (3 4))   == x:5, y:6, a:[1, 3], b:[2, 4]
 
 This entire concept is based on extending Python Tuple
 unpacking and Clojure destructuring:
@@ -74,113 +75,51 @@ class Keyword:
 
     def _keyword_comp(self, other):
         '''Used for when we store something as a keyword internally'''
-        if isinstance(other, Keyword):
-            return self == other
-        elif isinstance(other, Symbol):
+        if isinstance(other, Keyword, Symbol):
             return self.str == other.str
         else:
             return self.str == other
 
 
-class RList(collections.abc.MutableSequence):
-    '''Attempt at a LISP style linked list'''
-    def __init__(self, *data):
-        if len(data) == 1 and isinstance(data[0], collections.Container):
-            # Extract a single arg of a list
-            data = data[0]
-        if data:
-            self.data = collections.deque(data)
-        else:
-            self.data = collections.deque()
-
-    def __eq__(self, other):
-        if not isinstance(other, RList):
-            return False
-        else:
-            return self.data == other.data
-
-    def __iter__(self):
-        return iter(self.data)
-
-    def _cons(self, other):
-        # Need to reverse otherwise (cons '(1 2) `(3 4)) -> (2 1 3 4)
-        try:
-            self.data.extendleft(iter(other))
-            return self
-        except:
-            self.data.extendleft([other])
-            return self
-
-    def __call__(self, index):
-        '''Collections are mappings to values'''
-        return self[index]
-
-    def __repr__(self):
-        return '(' + ' '.join([str(x) for x in self.data]) + ')'
-
-    def __getitem__(self, key):
-        '''Hack slicing onto deques'''
-        if isinstance(key, slice):
-            start, stop, step = key.start, key.stop, key.step
-            start = start if start else 0
-            stop = stop if stop else len(self)
-            step = step if step else 1
-            return RList([self.data[x] for x in range(start, stop, step)])
-        else:
-            return self.data[key]
-
-    def __delitem__(self, index):
-        del self.data[index]
-
-    def __setitem__(self, index, value):
-        self.data[index] = value
-
-    def insert(self, index, value):
-        self.data.insert(index, value)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __add__(self, other):
-        new = RList(self.data + other.data)
-        return new
-
 ###############################################################################
 
 
-class Unmatched:
-    '''Flag for unmatched vars: may want to match against None'''
-    greedy = False
-
-    def __repr__(self):
-        return '__UNMATCHED__'
-
-    def __eq__(self, other):
-        return isinstance(other, Unmatched)
+def non_string_collection(x):
+    '''Allow distinguishing between string types and containers'''
+    if isinstance(x, collections.Container):
+        if not isinstance(x, (str, bytes)):
+            return True
+    return False
 
 
 class FailedMatch(Exception):
-    pass
+    __slots__ = []
 
 
 class Pvar:
-    repeating = False
     '''A pattern variable'''
+    __slots__ = 'greedy symbol value'.split()
+    repeating = False
+
     def __init__(self, symbol):
         self.symbol = symbol
         self.greedy = True if symbol.str.startswith('*') else False
         if self.greedy:
             self.symbol.str = self.symbol.str.lstrip('*')
-        self.value = Unmatched()
+        self.value = None
 
     def __repr__(self):
-        return str('{} -> {}'.format(self.symbol, self.value))
+        r = str('{} -> {}'.format(self.symbol, self.value))
+        if self.greedy:
+            return '*' + r
+        else:
+            return r
 
     def _propagate_match(self, attempt):
         '''make sure repeated vars are the same'''
         existing = attempt.get(self.symbol)
         if existing:
-            if isinstance(existing, Unmatched):
+            if not existing:
                 self.symbol = existing
             else:
                 if self.value != existing:
@@ -191,13 +130,10 @@ class Pvar:
             attempt[self.symbol.str] = self.value
 
     def __eq__(self, other):
-        if isinstance(other, collections.Container):
-            # TODO: find a  better way of distinguishing strings
-            #       form other container types.
-            if not type(other) == str:
-                return False
-
-        if type(self.value) == Unmatched:
+        if non_string_collection(other):
+            return False
+        if not self.value:
+            # We currently don't have a match so take it
             if self.greedy:
                 self.value = [other]
             else:
@@ -214,50 +150,49 @@ class Pvar:
                     return False
 
 
-# class Tvar(Pvar):
-#     '''A pvar that also type checks on the value passed'''
-#     def __init__(self, symbol, _type):
-#         self.symbol = symbol
-#         self._type = _type
-#         self.value = Unmatched()
-        
-
-#     def __eq__(self, other):
-#         if eval('isinstance({}, {})'.format(other, self._type)):
-#             if type(self.value) == Unmatched:
-#                 if self.greedy:
-#                     self.value = [other]
-#                 else:
-#                     self.value = other
-#                 return True
-#             else: 
-#                 if self.greedy:
-#                     self.value.append(other)
-#                     return True
-#                 else:
-#                     return False
-#         else:
-#             return False
-
-
-class Underscore(Pvar):
+class Underscore:
     '''Wildcard that matches anything'''
+    __slots__ = 'greedy symbol value'.split()
+    repeating = False
+
     def __init__(self, greedy=False):
         self.symbol = Symbol('_')
         self.greedy = greedy
-        self.value = Unmatched()
+        self.value = None
 
     def __eq__(self, other):
-        self.value = other
+        self.value = 'Matched'
         return True
+
+    def __repr__(self):
+        return "_"
 
     def _propagate_match(self, attempt):
         '''discard the match'''
         pass
 
+class Rvar:
+    '''A raw value that must be exactly equal for a match to occur'''
+    __slots__ = 'value'.split()
+    greedy =  False
+    repeating = False
+
+    def __init__(self, value):
+        self.value = value
+
+    def __eq__(self, other):
+        return self.value == other
+
+    def __repr__(self):
+        return self.value
+
+    def _propagate_match(self, attempt):
+        pass
+
 
 class Template:
-    '''a list of pattern vars'''
+    '''A list of pattern variables'''
+    __slots__ = 'repeating pvars value has_star has_ellipsis map'.split()
     greedy = False
 
     def __init__(self, *data):
@@ -265,19 +200,19 @@ class Template:
             # Allow a single arg of a list to be passed
             data = data[0]
 
-        pvars = []
+        self.pvars = []
         has_star = False
         has_ellipsis = False
 
         for element in data:
-            if isinstance(element, RList):
+            if non_string_collection(element):
                 # Add a sub-template
-                pvars.append(Template(element))
+                self.pvars.append(Template(element))
             elif isinstance(element, Symbol):
                 # Handle special pattern variables:
                 #   Underscores match anything but get discarded
                 if element.str == '_':
-                    pvars.append(Underscore())
+                    self.pvars.append(Underscore())
                 elif element.str == '*_':
                     # Underscores can be greedy
                     if has_star:
@@ -285,10 +220,10 @@ class Template:
                             'Can only have a maximum of one * per template')
                     else:
                         has_star = True
-                    pvars.append(Underscore(greedy=True))
+                    self.pvars.append(Underscore(greedy=True))
                 elif element.str == '...':
                     # Ellipsis makes the previous sub-template greedy
-                    if not isinstance(pvars[-1], Template):
+                    if not isinstance(self.pvars[-1], Template):
                         raise SyntaxError(
                             '... can only be used on a repeating sub template')
                     if has_ellipsis:
@@ -296,7 +231,7 @@ class Template:
                             'Can only have a maximum of one ... per template')
                     else:
                         has_ellipsis = True
-                        pvars[-1].repeating = True
+                        self.pvars[-1].repeating = True
                 else:
                     # Handle all other pattern variables
                     if element.str.startswith('*'):
@@ -306,17 +241,16 @@ class Template:
                                 'Can only have a max of one * per template')
                         else:
                             has_star = True
-                    pvars.append(Pvar(element))
+                    self.pvars.append(Pvar(element))
             else:
                 # TODO: It should be possible to specify values rather than
                 #       symbols. They should only match themselves.
-                raise ValueError(element, type(element), ' should be a Symbol')
+                # raise ValueError(element, type(element), ' should be a Symbol')
+                self.pvars.append(Rvar(element))
 
             if has_star and has_ellipsis:
                 raise SyntaxError('Invaild match template')
 
-        # Convert to internal representation and build an empty map to start.
-        self.pvars = RList(pvars)
         self.map = dict()
         self.repeating = False
 
@@ -325,9 +259,9 @@ class Template:
         return str(self.pvars)
 
     def __eq__(self, other):
-        if not isinstance(other, RList):
+        if not non_string_collection(other):
             raise SyntaxError(
-                    "Attempted match against something that isn't a list")
+                    "Attempted match against something that isn't a container")
         else:
             pairs = list(zip_longest(self.pvars, other, fillvalue=None))
             for _ in range(len(pairs)):
@@ -355,20 +289,26 @@ class Template:
                 elif pvar.repeating:
                     # Consume till the end of the list and combine the results
                     values_so_far = {k: [v] for k, v in pvar.map.items()}
+                    for k in values_so_far:
+                        if k in self.map:
+                            raise FailedMatch(
+                                ('A repeating template has redeclared a previous'
+                                 ' pattern variable'))
                     for _, next_target in pairs:
                         # reset so we can match again
                         for p in pvar.pvars:
-                            p.value = Unmatched()
+                            p.value = None
                         pvar == next_target
                         # update the map
                         for p in pvar.pvars:
                             values_so_far[p.symbol.str].append(p.value)
                     # We've now drained pairs so we are done
-                    self.map = values_so_far
+                    self.map.update(values_so_far)
                     break
                     
 
-            if all([not isinstance(v.value, Unmatched) for v in self.pvars]):
+            # if all([not isinstance(v.value, Unmatched) for v in self.pvars]):
+            if all([v.value for v in self.pvars]):
                 # horrible hack to get nested templates to work
                 self.value = self.pvars
                 return self.map
@@ -393,35 +333,41 @@ class Template:
 if __name__ == '__main__':
     # See if all of this works!
     tests = [
-        (RList([Symbol(x) for x in 'a *b c d'.split()]),
-         RList(1,2,3,4,5,6,7)),
-        (RList([Symbol(x) for x in 'a *b _ d'.split()]),
-         RList(1,2,3,4,5,6,7)),
-        (RList([Symbol(x) for x in 'a *b c *d'.split()]),
-         RList(1,2,3,4,5,6,7)),
-        (RList([Symbol(x) for x in 'a b c'.split()]),
-         RList(1,2,3,4,5,6,7)),
-        (RList([Symbol(x) for x in 'a b c'.split()]),
-         RList('A', 'B', 'C')),
-        (RList([Symbol(x) for x in 'a _ c'.split()]),
-         RList('A', 'B', 'C')),
-        (RList(Symbol('a'), Symbol('b'), RList(Symbol('c'), Symbol('d'))),
-         RList(1, 2, RList(3,4))),
-        (RList([Symbol(x) for x in 'a *b c'.split()]),
-         RList(1, 2, RList(3,4))),
-        (RList([Symbol(x) for x in 'a b *c d'.split()]),
-         RList(1,2,3,4,5,6,7)),
-        (RList(RList(Symbol('a'), Symbol('b')), Symbol('...')),
-         RList(RList(1,2), RList(3,4), RList(5,6)))
+        ([Symbol(x) for x in 'a *b c d'.split()],
+         (1,2,3,4,5,6,7)),
+        ([Symbol(x) for x in 'a *b _ d'.split()],
+         (1,2,3,4,5,6,7)),
+        ([Symbol(x) for x in 'a *b c *d'.split()],
+         (1,2,3,4,5,6,7)),
+        ([Symbol(x) for x in 'a b c'.split()],
+         (1,2,3,4,5,6,7)),
+        ([Symbol(x) for x in 'a b c'.split()],
+         ('A', 'B', 'C')),
+        ([Symbol(x) for x in 'a _ c'.split()],
+         ('A', 'B', 'C')),
+        ((Symbol('a'), Symbol('b'), (Symbol('c'), Symbol('d'))),
+         (1, 2, (3,4))),
+        ([Symbol(x) for x in 'a *b c'.split()],
+          (1, 2, (3,4))),
+        ([Symbol(x) for x in 'a b *c d'.split()],
+          (1,2,3,4,5,6,7)),
+        (((Symbol('a'), Symbol('b')), Symbol('...')),
+         ((1,2), (3,4), (5,6))),
+        ((Symbol('x'), Symbol('y'), (Symbol('a'), Symbol('b')), Symbol('...')),
+         ('a', 'b', (1,2), (3,4), (5,6))),
+        ((Symbol('a'), Symbol('b'), (Symbol('a'), Symbol('b')), Symbol('...')),
+         ('a', 'b', (1,2), (3,4), (5,6))),
+        ((1,2,3,4,5,6, Symbol('this')),
+         (1,2,3,4,5,6,7)),
         ]
 
     for tmp, tar in tests:
-        print('template: ', tmp)
-        print('target: ', tar)
+        print('Template: ', tmp)
+        print('Target: ', tar)
         try:
             T = Template(tmp)
             T == tar
-            print('match:', T.map, '\n')
+            print('Match:', T.map, '\n')
         except FailedMatch as f:
             print('** MATCH FAILED:', f, '**\n')
         except SyntaxError as s:
