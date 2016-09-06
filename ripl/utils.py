@@ -60,7 +60,7 @@ def curry(func, *args):
 
     RIPL SYNTAX
         Going to try having a curry macro that is invoked as:
-        (define add3 ~(add 3))
+        (define add3 $(add 3))
     '''
     if (len(args) == 1) and (type(args[0]) == dict):
         # allow splatting of a single dict

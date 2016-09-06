@@ -70,20 +70,18 @@ set everything up and give you the `ripl` command.
 
 ### TODO
 - [ ] A prelude of functional style functions and operators
-  -  [x] fold, scan, product, filter, reverse
+  - [x] fold, scan, product, filter, reverse
   - [x] take/drop{while}
   - [ ] quick file handling
-  - [x] Currying / partial application (planning on having `~(sexp)` as syntax for this)
+  - [x] Currying / partial application (planning on having `$(sexp)` as syntax for this)
   - [ ] zipwith
 - [ ] Python control flow: for, while, if
   - [ ] Functional versions / alternatives for these
 - [ ] Tail call recursion
 - [ ] Classes
-- [ ] Haskell style pattern matching
+- [x] Haskell style pattern matching
 - [ ] A type system(! (>=3.5 only i think))
   - Look at using [typeannotations](https://github.com/ceronman/typeannotations)
 - [ ] Macros
-- [ ] Auto indent / formatting in the repl
-  - Look [here](https://goo.gl/da5rR8) for Pygments Hy version.
-- [ ] A syntax file for Vim (maybe once I have the syntax settled...)
+- [x] Auto indent / formatting in the repl
 - [ ] Docs...lots of docs!
