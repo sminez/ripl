@@ -19,7 +19,7 @@ import itertools
 import operator as op
 from types import GeneratorType
 
-from .bases import RList
+from .bases import RVector
 
 
 def reverse(itr):
@@ -165,4 +165,4 @@ def drain(gen):
     ''' :: Gen[*T] -> List[*T]
     Given a generator, convert it to a list (RVector)
     '''
-    return RList([elem for elem in gen])
+    return RVector([elem for elem in gen])
